@@ -1,7 +1,7 @@
 [package]
 authors = ["Praveen Perera <praveen@avencera.com>"]
 edition = "2018"
-name = "splitnox"
+name = "splitmonic"
 version = "0.1.0"
 
 [dependencies]
