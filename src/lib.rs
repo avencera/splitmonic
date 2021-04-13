@@ -1,29 +1,38 @@
 pub mod shamir;
 mod wordlist;
 
-use std::str::FromStr;
+use bip39::{Language, Mnemonic};
+use wordlist::{English, Wordlist, WordlistError};
 
-use bip39::Mnemonic;
-use wordlist::{English, Wordlist};
+use thiserror::Error;
+#[derive(Debug, Error, PartialEq)]
+pub enum Error {
+    #[error(transparent)]
+    Wordlist(#[from] WordlistError),
 
-pub fn share_to_phrase(mut share: Vec<u8>) -> String {
+    #[error(transparent)]
+    BIP39(#[from] bip39::Error),
+}
+
+pub fn share_to_phrase(mut share: Vec<u8>) -> Result<String, Error> {
     let id = share.remove(0);
-    let id_word = English::get_word(id as usize).unwrap();
+    let id_word = English::get_word(id as usize)?;
 
     let words = Mnemonic::from_entropy(&share).unwrap().to_string();
 
-    format!("{} {}", id_word, words)
+    Ok(format!("{} {}", id_word, words))
 }
 
-pub fn phrase_to_share(phrase: String) -> Vec<u8> {
+pub fn phrase_to_share(phrase: String) -> Result<Vec<u8>, Error> {
     let mut words: Vec<&str> = phrase.split(' ').collect();
     let id_word = words.remove(0);
-    let id = English::get_index(id_word).unwrap();
+    let id = English::get_index(id_word)?;
 
-    let mut share = Mnemonic::from_str(&words.join(" ")).unwrap().to_entropy();
+    let mut share = Mnemonic::parse_in(Language::English, &words.join(" "))?.to_entropy();
 
     share.insert(0, id as u8);
-    share
+
+    Ok(share)
 }
 
 #[cfg(test)]
@@ -43,13 +52,13 @@ mod tests {
         let share_2 = secret_data.get_share(2).unwrap();
         let share_3 = secret_data.get_share(3).unwrap();
 
-        let sh1_nu = share_to_phrase(share_1);
-        let sh2_nu = share_to_phrase(share_2);
-        let sh3_nu = share_to_phrase(share_3);
+        let sh1_nu = share_to_phrase(share_1).unwrap();
+        let sh2_nu = share_to_phrase(share_2).unwrap();
+        let sh3_nu = share_to_phrase(share_3).unwrap();
 
-        let sh1_en = phrase_to_share(sh1_nu);
-        let sh2_en = phrase_to_share(sh2_nu);
-        let sh3_en = phrase_to_share(sh3_nu);
+        let sh1_en = phrase_to_share(sh1_nu).unwrap();
+        let sh2_en = phrase_to_share(sh2_nu).unwrap();
+        let sh3_en = phrase_to_share(sh3_nu).unwrap();
 
         let recovered = SecretData::recover_secret(3, vec![sh1_en, sh2_en, sh3_en]).unwrap();
         let recovered_nu = Mnemonic::from_entropy(&recovered).unwrap().to_string();
