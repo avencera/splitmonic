@@ -36,15 +36,15 @@ still recover your original code using the other 3.
 
 ## FAQ
 
-**Why wouldn't I just use multi-signature?**
+**Q. Why wouldn't I just use multi-signature?**
 
-You definitely could, but using multi-signature can be a hassle to use. With splitmonic you can use
+**A.** You definitely could, but using multi-signature can be a hassle to use. With splitmonic you can use
 you current single signature hardware wallet as you normally do, while making your backups more
 secure.
 
-**If someone finds 1 or 2 of my splitmonic phrases can they guess my original phrase?**
+**Q. If someone finds 1 or 2 of my splitmonic phrases can they guess my original phrase?**
 
-No. Splitmonic uses [shamir secret sharing](https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing)
+**A.** No. Splitmonic uses [shamir secret sharing](https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing)
 to split your phrase. Your splitmonic phrases are a subset of your original phrase.
 
 ## Acknowledgements
