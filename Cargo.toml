@@ -1,7 +1,13 @@
 [package]
 authors = ["Praveen Perera <praveen@avencera.com>"]
+description = "Simplicity of paper backup with security of a multi-signature"
+documentation = "https://docs.rs/splitmonic"
 edition = "2018"
+homepage = "https://github.com/avencera/splitmonic"
+license = "Apache-2.0"
 name = "splitmonic"
+readme = "README.md"
+repository = "https://github.com/avencera/splitmonic"
 version = "0.1.0"
 
 [dependencies]
