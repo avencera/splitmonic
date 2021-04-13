@@ -2,7 +2,7 @@
 
 Simplicity of paper backup with security of a multi-signature
 
-![](https://imgur.com/jgl7oTs.jpg)
+![](splitmonic_explain.jpg)
 
 ## Install
 
