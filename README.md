@@ -50,5 +50,5 @@ to split your phrase. Your splitmonic phrases are **NOT** a subset of your origi
 ## Acknowledgements
 
 - [Nebulosus/shamir](https://github.com/Nebulosus/shamir) - most of the code for the shamir secret sharing algorithm if from this library
-- [summa-tx/bitcoins-rs](summa-tx/bitcoins-rs) - the code for the BIP39 word list was inspired from this library
+- [summa-tx/bitcoins-rs](https://github.com/summa-tx/bitcoins-rs) - the code for the BIP39 word list was inspired from this library
 - [jesseduffield/horcrux](https://github.com/jesseduffield/horcrux) - for the idea for the diagram
