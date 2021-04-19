@@ -11,5 +11,5 @@ fn main() {
 
     let recovered_mnemonic = splitmonic::recover_mnemonic_code(split_phrases);
 
-    println!("Recovered: {}", recovered_mnemonic.unwrap().to_string());
+    println!("\nRecovered: {}", recovered_mnemonic.unwrap().to_string());
 }

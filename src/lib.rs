@@ -3,6 +3,7 @@ mod wordlist;
 
 use crate::shamir::SecretData;
 use bip39::{Language, Mnemonic};
+use rand::Rng;
 use wordlist::{English, Wordlist, WordlistError};
 use zeroize::Zeroize;
 
@@ -22,26 +23,47 @@ pub enum Error {
     ShareToPhrase,
 
     #[error("not enough shares, gave {gave:?}, expected {expected:?}")]
-    NotEnoughShares { gave: u8, expected: u8 },
+    NotEnoughShares { gave: usize, expected: u8 },
 
     #[error("unable to recover secret")]
     UnableToRecoverSecret,
+
+    #[error("all phrases must be from the same set")]
+    MismatchedSet,
 }
 
 pub fn get_split_phrases(mnemonic_code: String) -> Result<Vec<String>, Error> {
+    let mut rng = rand::thread_rng();
+
     let mut shares = get_split_shares(mnemonic_code)?;
 
-    let phrases: Vec<String> = shares
+    let phrases = shares
         .iter_mut()
         .map(share_to_phrase)
-        .filter_map(Result::ok)
-        .collect();
+        .collect::<Result<Vec<String>, Error>>()?;
 
-    if shares.len() == phrases.len() {
-        Ok(phrases)
-    } else {
-        Err(Error::ShareToPhrase)
+    if shares.len() != phrases.len() {
+        return Err(Error::ShareToPhrase);
     }
+
+    // the first three words of all the phrases for this set are the same
+    // the helps identify which set it belongs to
+    let three_word_set_id = vec![
+        rng.gen_range(0..2048),
+        rng.gen_range(0..2048),
+        rng.gen_range(0..2048),
+    ]
+    .iter()
+    .map(|id| wordlist::English::get_word(*id as usize).unwrap())
+    .collect::<Vec<String>>()
+    .join(" ");
+
+    let mut complete_phrases = Vec::with_capacity(5);
+    for phrase in phrases {
+        complete_phrases.push(format!("{} {}", &three_word_set_id, phrase))
+    }
+
+    Ok(complete_phrases)
 }
 
 pub fn recover_mnemonic_code(split_phrases: Vec<String>) -> Result<String, Error> {
@@ -49,16 +71,17 @@ pub fn recover_mnemonic_code(split_phrases: Vec<String>) -> Result<String, Error
 
     if number_of_split_phrases < 3 {
         return Err(Error::NotEnoughShares {
-            gave: number_of_split_phrases as u8,
+            gave: number_of_split_phrases,
             expected: 3,
         });
     }
 
-    let split_shares: Vec<Vec<u8>> = split_phrases
+    let split_phrases_without_set_ids = verify_and_remove_set_id(split_phrases)?;
+
+    let split_shares = split_phrases_without_set_ids
         .into_iter()
-        .map(phrase_to_share)
-        .filter_map(Result::ok)
-        .collect();
+        .map(words_to_share)
+        .collect::<Result<Vec<Vec<u8>>, Error>>()?;
 
     if split_shares.len() != number_of_split_phrases {
         return Err(Error::UnableToRecoverSecret);
@@ -71,6 +94,35 @@ pub fn recover_mnemonic_code(split_phrases: Vec<String>) -> Result<String, Error
     recovered.zeroize();
 
     Ok(mnemonic)
+}
+
+fn verify_and_remove_set_id(split_phrases: Vec<String>) -> Result<Vec<Vec<String>>, Error> {
+    let mut set_id = Vec::with_capacity(3);
+    let mut without_ids = Vec::with_capacity(split_phrases.len());
+
+    for split_phrase in split_phrases {
+        let split_phrase_vec = split_phrase.split(' ').collect::<Vec<&str>>();
+
+        if set_id.len() == 0 {
+            set_id = split_phrase_vec[0..3]
+                .iter()
+                .map(ToString::to_string)
+                .collect()
+        }
+
+        if set_id[0..3] != split_phrase_vec[0..3] {
+            return Err(Error::MismatchedSet);
+        }
+
+        without_ids.push(
+            split_phrase_vec[3..]
+                .into_iter()
+                .map(ToString::to_string)
+                .collect(),
+        )
+    }
+
+    Ok(without_ids)
 }
 
 fn get_split_shares(mut mnemonic_code: String) -> Result<[Vec<u8>; 5], Error> {
@@ -102,14 +154,12 @@ fn share_to_phrase(share: &mut Vec<u8>) -> Result<String, Error> {
     Ok(format!("{} {}", id_word, words))
 }
 
-fn phrase_to_share(mut phrase: String) -> Result<Vec<u8>, Error> {
-    let mut words: Vec<&str> = phrase.split(' ').collect();
-
+fn words_to_share(mut words: Vec<String>) -> Result<Vec<u8>, Error> {
     let id_word = words.remove(0);
-    let id = English::get_index(id_word)?;
+    let id = English::get_index(&id_word)?;
 
     let mut share = Mnemonic::parse_in(Language::English, &words.join(" "))?.to_entropy();
-    phrase.zeroize();
+    words.zeroize();
 
     share.insert(0, id as u8);
 
@@ -120,6 +170,37 @@ fn phrase_to_share(mut phrase: String) -> Result<Vec<u8>, Error> {
 mod tests {
     use super::*;
     use rand::seq::SliceRandom;
+
+    #[test]
+    fn each_recovery_phrase_is_28_words() {
+        let mnemonic_code = "dance monitor unveil wood cycle uphold video elephant run unlock theme year divide text lyrics captain expose garlic bundle patrol praise net hour point";
+        let split_phrases = get_split_phrases(mnemonic_code.to_string()).unwrap();
+
+        for split_phrase in split_phrases {
+            assert_eq!(split_phrase.split(' ').collect::<Vec<&str>>().len(), 28)
+        }
+    }
+
+    #[test]
+    fn first_3_words_are_always_the_same() {
+        let mnemonic_code = "dance monitor unveil wood cycle uphold video elephant run unlock theme year divide text lyrics captain expose garlic bundle patrol praise net hour point";
+        let split_phrases = get_split_phrases(mnemonic_code.to_string()).unwrap();
+
+        let three_word_id: Vec<String> = split_phrases[0]
+            .split(' ')
+            .collect::<Vec<&str>>()
+            .as_slice()[0..3]
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+
+        for split_phrase in split_phrases {
+            assert_eq!(
+                split_phrase.split(' ').collect::<Vec<&str>>().as_slice()[0..3],
+                three_word_id
+            )
+        }
+    }
 
     #[test]
     fn split_and_recover() {
