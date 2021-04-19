@@ -1,5 +1,7 @@
 /// Taken from: https://github.com/Nebulosus/shamir, heavily modified to fit current library needs
 use rand::{thread_rng, RngCore};
+use thiserror::Error;
+use zeroize::Zeroize;
 
 #[cfg(test)]
 mod tests {
@@ -47,11 +49,8 @@ mod tests {
         let secret_data = SecretData::with_secret("Hello, world!".as_bytes(), 3);
 
         let s1 = secret_data.get_share(1).unwrap();
-        println!("s1: {:?}", s1);
         let s2 = secret_data.get_share(2).unwrap();
-        println!("s2: {:?}", s2);
         let s3 = secret_data.get_share(3).unwrap();
-        println!("s3: {:?}", s3);
 
         let new_secret = SecretData::recover_secret(3, vec![s1, s2, s3]).unwrap();
 
@@ -84,14 +83,15 @@ mod tests {
     }
 }
 
+#[derive(Zeroize)]
+#[zeroize(drop)]
 pub struct SecretData {
-    pub secret_data: Option<String>,
     pub coefficients: Vec<Vec<u8>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error, PartialEq)]
 pub enum ShamirError {
-    /// The number of shares must be between 1 and 255
+    #[error("Unable to get shamir share")]
     InvalidShareCount,
 }
 
@@ -100,6 +100,7 @@ impl SecretData {
         let mut coefficients: Vec<Vec<u8>> = vec![];
         let mut rng = thread_rng();
         let mut rand_container = vec![0u8; (threshold - 1) as usize];
+
         for c in secret {
             rng.fill_bytes(&mut rand_container);
             let mut coefficient: Vec<u8> = vec![*c];
@@ -109,10 +110,7 @@ impl SecretData {
             coefficients.push(coefficient);
         }
 
-        SecretData {
-            secret_data: Some("".to_string()),
-            coefficients,
-        }
+        SecretData { coefficients }
     }
 
     pub fn get_share(&self, id: u8) -> Result<Vec<u8>, ShamirError> {

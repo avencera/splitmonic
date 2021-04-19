@@ -8,6 +8,10 @@ Simplicity of paper backup with security of a multi-signature
 
 ... coming soon ...
 
+## Usage
+
+...coming soon...
+
 ## What?
 
 A small program that takes you're 24 word BIP39 mnemonic code and generates 5 more phrases, each
@@ -27,12 +31,6 @@ bitcoin.
 Another advantage of splitmonic is that it allows you to make your backups more durable. Since you only
 need 3 of 5 phrases to recreate the original, even if you lost or destroyed 2 of your phrases you could
 still recover your original code using the remaining 3.
-
-## How?
-
-...coming soon...
-
-## Example
 
 ## FAQ
 

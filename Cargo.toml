@@ -11,7 +11,12 @@ repository = "https://github.com/avencera/splitmonic"
 version = "0.1.0"
 
 [dependencies]
-bip39 = "1.0"
+# lib
+bip39 = {git = "https://github.com/praveenperera/rust-bip39.git", features = ["zeroize"]}
 once_cell = "1.0"
 rand = "0.8"
 thiserror = "1.0"
+zeroize = "1.2"
+
+# bin
+structopt = "0.3"
