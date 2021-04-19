@@ -76,7 +76,8 @@ pub fn recover_mnemonic_code(split_phrases: Vec<String>) -> Result<String, Error
         });
     }
 
-    let split_phrases_without_set_ids = verify_and_remove_set_id(split_phrases)?;
+    let split_phrases_words = split_phrase_into_words(&split_phrases);
+    let split_phrases_without_set_ids = verify_and_remove_set_id(split_phrases_words)?;
 
     let split_shares = split_phrases_without_set_ids
         .into_iter()
@@ -96,30 +97,27 @@ pub fn recover_mnemonic_code(split_phrases: Vec<String>) -> Result<String, Error
     Ok(mnemonic)
 }
 
-fn verify_and_remove_set_id(split_phrases: Vec<String>) -> Result<Vec<Vec<String>>, Error> {
+fn split_phrase_into_words(split_phrases: &Vec<String>) -> Vec<Vec<&str>> {
+    split_phrases
+        .into_iter()
+        .map(|phrase| phrase.split(' ').collect::<Vec<&str>>())
+        .collect()
+}
+
+fn verify_and_remove_set_id(split_phrases: Vec<Vec<&str>>) -> Result<Vec<Vec<&str>>, Error> {
     let mut set_id = Vec::with_capacity(3);
     let mut without_ids = Vec::with_capacity(split_phrases.len());
 
     for split_phrase in split_phrases {
-        let split_phrase_vec = split_phrase.split(' ').collect::<Vec<&str>>();
-
         if set_id.len() == 0 {
-            set_id = split_phrase_vec[0..3]
-                .iter()
-                .map(ToString::to_string)
-                .collect()
+            set_id = split_phrase[0..3].into_iter().cloned().collect()
         }
 
-        if set_id[0..3] != split_phrase_vec[0..3] {
+        if set_id[0..3] != split_phrase[0..3] {
             return Err(Error::MismatchedSet);
         }
 
-        without_ids.push(
-            split_phrase_vec[3..]
-                .into_iter()
-                .map(ToString::to_string)
-                .collect(),
-        )
+        without_ids.push(split_phrase[3..].into_iter().cloned().collect())
     }
 
     Ok(without_ids)
@@ -154,12 +152,11 @@ fn share_to_phrase(share: &mut Vec<u8>) -> Result<String, Error> {
     Ok(format!("{} {}", id_word, words))
 }
 
-fn words_to_share(mut words: Vec<String>) -> Result<Vec<u8>, Error> {
+fn words_to_share(mut words: Vec<&str>) -> Result<Vec<u8>, Error> {
     let id_word = words.remove(0);
     let id = English::get_index(&id_word)?;
 
     let mut share = Mnemonic::parse_in(Language::English, &words.join(" "))?.to_entropy();
-    words.zeroize();
 
     share.insert(0, id as u8);
 
