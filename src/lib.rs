@@ -17,9 +17,63 @@ pub enum Error {
 
     #[error(transparent)]
     Shamir(#[from] shamir::ShamirError),
+
+    #[error("error converting share(s) to phrase")]
+    ShareToPhrase,
+
+    #[error("not enough shares, gave {gave:?}, expected {expected:?}")]
+    NotEnoughShares { gave: u8, expected: u8 },
+
+    #[error("unable to recover secret")]
+    UnableToRecoverSecret,
 }
 
-pub fn get_phrases(mut mnemonic_code: String) -> Result<[Vec<u8>; 5], Error> {
+pub fn get_split_phrases(mnemonic_code: String) -> Result<Vec<String>, Error> {
+    let mut shares = get_split_shares(mnemonic_code)?;
+
+    let phrases: Vec<String> = shares
+        .iter_mut()
+        .map(share_to_phrase)
+        .filter_map(Result::ok)
+        .collect();
+
+    if shares.len() == phrases.len() {
+        Ok(phrases)
+    } else {
+        Err(Error::ShareToPhrase)
+    }
+}
+
+pub fn recover_mnemonic_code(split_phrases: Vec<String>) -> Result<String, Error> {
+    let number_of_split_phrases = split_phrases.len();
+
+    if number_of_split_phrases < 3 {
+        return Err(Error::NotEnoughShares {
+            gave: number_of_split_phrases as u8,
+            expected: 3,
+        });
+    }
+
+    let split_shares: Vec<Vec<u8>> = split_phrases
+        .into_iter()
+        .map(phrase_to_share)
+        .filter_map(Result::ok)
+        .collect();
+
+    if split_shares.len() != number_of_split_phrases {
+        return Err(Error::UnableToRecoverSecret);
+    }
+
+    let mut recovered =
+        SecretData::recover_secret(3, split_shares).ok_or(Error::UnableToRecoverSecret)?;
+
+    let mnemonic = Mnemonic::from_entropy(&recovered)?.to_string();
+    recovered.zeroize();
+
+    Ok(mnemonic)
+}
+
+fn get_split_shares(mut mnemonic_code: String) -> Result<[Vec<u8>; 5], Error> {
     let mut mnemonic = Mnemonic::parse(&mnemonic_code).unwrap();
     mnemonic_code.zeroize();
 
@@ -38,7 +92,7 @@ pub fn get_phrases(mut mnemonic_code: String) -> Result<[Vec<u8>; 5], Error> {
     ])
 }
 
-pub fn share_to_phrase(mut share: Vec<u8>) -> Result<String, Error> {
+fn share_to_phrase(share: &mut Vec<u8>) -> Result<String, Error> {
     let id = share.remove(0);
     let id_word = English::get_word(id as usize)?;
 
@@ -48,7 +102,7 @@ pub fn share_to_phrase(mut share: Vec<u8>) -> Result<String, Error> {
     Ok(format!("{} {}", id_word, words))
 }
 
-pub fn phrase_to_share(mut phrase: String) -> Result<Vec<u8>, Error> {
+fn phrase_to_share(mut phrase: String) -> Result<Vec<u8>, Error> {
     let mut words: Vec<&str> = phrase.split(' ').collect();
 
     let id_word = words.remove(0);
@@ -65,31 +119,22 @@ pub fn phrase_to_share(mut phrase: String) -> Result<Vec<u8>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shamir::SecretData;
+    use rand::seq::SliceRandom;
 
     #[test]
     fn split_and_recover() {
-        let data = "dance monitor unveil wood cycle uphold video elephant run unlock theme year divide text lyrics captain expose garlic bundle patrol praise net hour point";
-        let nu = Mnemonic::parse(data).unwrap();
-        let entropy = nu.to_entropy();
+        let mut rng = rand::thread_rng();
 
-        let secret_data = SecretData::with_secret(&entropy, 3);
+        let mnemonic_code = "dance monitor unveil wood cycle uphold video elephant run unlock theme year divide text lyrics captain expose garlic bundle patrol praise net hour point";
+        let mut split_phrases = get_split_phrases(mnemonic_code.to_string()).unwrap();
 
-        let share_1 = secret_data.get_share(1).unwrap();
-        let share_2 = secret_data.get_share(2).unwrap();
-        let share_3 = secret_data.get_share(3).unwrap();
+        split_phrases.shuffle(&mut rng);
 
-        let sh1_nu = share_to_phrase(share_1).unwrap();
-        let sh2_nu = share_to_phrase(share_2).unwrap();
-        let sh3_nu = share_to_phrase(share_3).unwrap();
+        split_phrases.pop();
+        split_phrases.pop();
 
-        let sh1_en = phrase_to_share(sh1_nu).unwrap();
-        let sh2_en = phrase_to_share(sh2_nu).unwrap();
-        let sh3_en = phrase_to_share(sh3_nu).unwrap();
+        let recovered_mnemonic = recover_mnemonic_code(split_phrases).unwrap();
 
-        let recovered = SecretData::recover_secret(3, vec![sh1_en, sh2_en, sh3_en]).unwrap();
-        let recovered_nu = Mnemonic::from_entropy(&recovered).unwrap().to_string();
-
-        assert_eq!(&recovered_nu, data)
+        assert_eq!(recovered_mnemonic, mnemonic_code.to_string())
     }
 }
