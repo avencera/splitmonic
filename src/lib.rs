@@ -31,6 +31,8 @@ pub enum Error {
     MismatchedSet,
 }
 
+/// When given a BIP39 mnemonic code, returns a vec containing 5 split phrases.
+/// 3 of these 5 codes can later be used to recreate your original mnemonic code.
 pub fn get_split_phrases(mnemonic_code: String) -> Result<Vec<String>, Error> {
     use rand::Rng;
 
@@ -67,6 +69,7 @@ pub fn get_split_phrases(mnemonic_code: String) -> Result<Vec<String>, Error> {
     Ok(complete_phrases)
 }
 
+/// When given a vector of at least 3 split phrases, returns the original mnemonic code
 pub fn recover_mnemonic_code(mut split_phrases: Vec<String>) -> Result<String, Error> {
     let number_of_split_phrases = split_phrases.len();
 
@@ -100,6 +103,8 @@ pub fn recover_mnemonic_code(mut split_phrases: Vec<String>) -> Result<String, E
 }
 
 mod split {
+    //! Contains helper functions used for splitting the mnemonic code into phrases
+
     use crate::wordlist::{English, Wordlist};
     use crate::{shamir::SecretData, Error};
     use bip39::Mnemonic;
@@ -136,6 +141,8 @@ mod split {
 }
 
 mod recover {
+    //! Contains helper functions used for recovering the mnemonic code from the split phrases
+
     use crate::{
         wordlist::{English, Wordlist},
         Error,

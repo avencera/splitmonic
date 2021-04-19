@@ -1,5 +1,5 @@
-/// Taken from: https://github.com/summa-tx/bitcoins-rs/tree/main/bip39/src/wordlist
-/// and modified to make looks a bit quicker
+//! Taken from: https://github.com/summa-tx/bitcoins-rs/tree/main/bip39/src/wordlist
+//! and modified to make look ups a bit quicker, the trade of is it uses more memory
 pub mod english;
 pub use self::english::*;
 use once_cell::unsync::Lazy;
