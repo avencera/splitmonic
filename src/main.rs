@@ -1,3 +1,5 @@
+mod ui;
+
 use crossbeam_channel::unbounded;
 use crossterm::{
     event::{self, Event as CEvent, KeyCode, KeyEvent, KeyModifiers},
@@ -8,52 +10,43 @@ use std::{
     io, thread,
     time::{Duration, Instant},
 };
-use tui::{
-    backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
-    text::{Span, Spans, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
-    Frame, Terminal,
-};
+use tui::{backend::CrosstermBackend, Terminal};
 
 use splitmonic::wordlist::english::English;
 use splitmonic::wordlist::Wordlist;
 
-use unicode_width::UnicodeWidthStr;
-
-enum Event<I> {
+pub enum Event<I> {
     Input(I),
     Tick,
 }
 
-enum InputMode {
+pub enum InputMode {
     Normal,
     Editing,
 }
 
-enum ScreenState {
+pub enum ScreenState {
     Input(InputMode),
     List,
 }
 
-impl Default for App {
-    fn default() -> App {
-        App {
+impl Default for SplitApp {
+    fn default() -> SplitApp {
+        SplitApp {
             autocomplete: English::get_word(0).unwrap(),
             input: String::new(),
             screen_state: ScreenState::Input(InputMode::Normal),
-            messages: StatefulList::new(),
+            mnemonic: StatefulList::new(),
             should_quit: false,
         }
     }
 }
 
-struct App {
+pub struct SplitApp {
     autocomplete: &'static str,
     input: String,
     screen_state: ScreenState,
-    messages: StatefulList<String>,
+    mnemonic: StatefulList<String>,
     should_quit: bool,
 }
 
@@ -66,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut app = App::default();
+    let mut app = SplitApp::default();
 
     // Setup input handling
     let (tx, rx) = unbounded();
@@ -96,7 +89,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     terminal.clear()?;
 
     loop {
-        terminal.draw(|f| draw(f, &mut app))?;
+        terminal.draw(|f| ui::draw(f, &mut app))?;
         match rx.recv()? {
             Event::Input(event) => match &app.screen_state {
                 ScreenState::Input(InputMode::Normal) => handle_input_in_normal(event, &mut app),
@@ -119,7 +112,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn handle_input_in_editing(key_event: KeyEvent, app: &mut App) {
+fn handle_input_in_editing(key_event: KeyEvent, app: &mut SplitApp) {
     match key_event.code {
         KeyCode::Char(char) => {
             app.input.push(char);
@@ -131,7 +124,7 @@ fn handle_input_in_editing(key_event: KeyEvent, app: &mut App) {
                 }
                 [only_one] => {
                     app.autocomplete = "";
-                    app.messages.push(only_one.to_string());
+                    app.mnemonic.push(only_one.to_string());
                     app.input = "".to_string();
                 }
                 [head, ..] => app.autocomplete = head,
@@ -148,7 +141,7 @@ fn handle_input_in_editing(key_event: KeyEvent, app: &mut App) {
         }
         KeyCode::Right => app.input = app.autocomplete.to_string(),
         KeyCode::Down => {
-            app.messages.select();
+            app.mnemonic.select();
             app.screen_state = ScreenState::List;
         }
         KeyCode::Tab => {
@@ -158,14 +151,14 @@ fn handle_input_in_editing(key_event: KeyEvent, app: &mut App) {
         }
         KeyCode::Enter => {
             app.input = app.input.trim().to_string();
-            app.messages.push(app.autocomplete.to_string());
+            app.mnemonic.push(app.autocomplete.to_string());
             app.input = "".to_string();
         }
         _ => {}
     }
 }
 
-fn handle_input_in_normal(key_event: KeyEvent, app: &mut App) {
+fn handle_input_in_normal(key_event: KeyEvent, app: &mut SplitApp) {
     match key_event.code {
         KeyCode::Char('q') => {
             app.should_quit = true;
@@ -173,210 +166,45 @@ fn handle_input_in_normal(key_event: KeyEvent, app: &mut App) {
         KeyCode::Char('i') => app.screen_state = ScreenState::Input(InputMode::Editing),
         KeyCode::Esc => app.screen_state = ScreenState::Input(InputMode::Normal),
         KeyCode::Down | KeyCode::Tab => {
-            app.messages.select();
+            app.mnemonic.select();
             app.screen_state = ScreenState::List;
         }
         KeyCode::Up => {
-            app.messages.previous();
+            app.mnemonic.previous();
         }
         _ => {}
     }
 }
 
-fn handle_list(key_event: KeyEvent, app: &mut App) {
+fn handle_list(key_event: KeyEvent, app: &mut SplitApp) {
     match key_event.code {
         KeyCode::Char('i') => {
-            app.messages.unselect();
+            app.mnemonic.unselect();
             app.screen_state = ScreenState::Input(InputMode::Editing)
         }
         KeyCode::Esc | KeyCode::Tab => {
-            app.messages.unselect();
+            app.mnemonic.unselect();
             app.screen_state = ScreenState::Input(InputMode::Normal)
         }
         KeyCode::Up if key_event.modifiers.contains(KeyModifiers::ALT) => {
-            app.messages.move_up();
+            app.mnemonic.move_up();
         }
 
         KeyCode::Up => {
-            if app.messages.items.is_empty() {
-                app.messages.unselect();
+            if app.mnemonic.items.is_empty() {
+                app.mnemonic.unselect();
                 app.screen_state = ScreenState::Input(InputMode::Normal)
             } else {
-                app.messages.previous()
+                app.mnemonic.previous()
             }
         }
-        KeyCode::Char('d') => app.messages.delete_selected(),
+        KeyCode::Char('d') => app.mnemonic.delete_selected(),
         KeyCode::Down if key_event.modifiers.contains(KeyModifiers::ALT) => {
-            app.messages.move_down();
+            app.mnemonic.move_down();
         }
-        KeyCode::Down => app.messages.next(),
+        KeyCode::Down => app.mnemonic.next(),
         _ => {}
     }
-}
-
-fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    let help_box_size = match &app.screen_state {
-        ScreenState::List => 3,
-        _ => 1,
-    };
-
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .margin(2)
-        .constraints(
-            [
-                Constraint::Min(help_box_size + 1),
-                Constraint::Length(3),
-                Constraint::Min(1),
-            ]
-            .as_ref(),
-        )
-        .split(f.size());
-
-    let (mut text, style) = match app.screen_state {
-        ScreenState::Input(InputMode::Normal) => (
-            Text::from(Spans::from(vec![
-                Span::raw("Press "),
-                Span::styled("q ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to exit, "),
-                Span::styled("i ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to start editing, "),
-                Span::styled("↓ ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("or "),
-                Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to access the word list"),
-            ])),
-            Style::default().add_modifier(Modifier::RAPID_BLINK),
-        ),
-
-        ScreenState::Input(InputMode::Editing) => (
-            Text::from(Spans::from(vec![
-                Span::raw("Press "),
-                Span::styled("Esc ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to stop editing, "),
-                Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to add the word, "),
-                Span::styled("↓ ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to access the word list, "),
-                Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to see the next autocomplete word"),
-            ])),
-            Style::default(),
-        ),
-
-        ScreenState::List => (
-            {
-                let mut texts = Text::from(Spans::from(vec![
-                    Span::raw("Press "),
-                    Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw("to go to normal mode, "),
-                    Span::styled("i ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw("to add new words, "),
-                ]));
-
-                texts.extend(Text::from(Spans::from(vec![
-                    Span::styled(
-                        "      <ALT> + ↓ ",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    ),
-                    Span::raw("to move word down, "),
-                    Span::styled("<ALT> + ↑ ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw("to move word up, "),
-                ])));
-
-                texts.extend(Text::from(Spans::from(vec![
-                    Span::styled("      d ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw("to delete word, "),
-                    Span::styled("e ", Style::default().add_modifier(Modifier::BOLD)),
-                    Span::raw("to edit word "),
-                ])));
-
-                texts
-            },
-            Style::default(),
-        ),
-    };
-
-    text.patch_style(style);
-
-    let help_message = Paragraph::new(text);
-    f.render_widget(help_message, chunks[0]);
-
-    let input_text = match app.screen_state {
-        ScreenState::Input(InputMode::Editing) => {
-            let autocomplete = if app.autocomplete.len() >= app.input.len() {
-                &app.autocomplete[app.input.len()..]
-            } else {
-                &app.autocomplete
-            };
-
-            vec![Spans::from(vec![
-                Span::raw(&app.input),
-                Span::styled(autocomplete, Style::default().fg(Color::DarkGray)),
-            ])]
-        }
-        _ => vec![Spans::from(Span::raw(""))],
-    };
-
-    let input = Paragraph::new(input_text)
-        .style(match app.screen_state {
-            ScreenState::Input(InputMode::Editing) => Style::default().fg(Color::Yellow),
-            _ => Style::default(),
-        })
-        .block(Block::default().borders(Borders::ALL).title("Input"));
-
-    f.render_widget(input, chunks[1]);
-
-    match app.screen_state {
-        ScreenState::List => {}
-
-        ScreenState::Input(InputMode::Normal) => {}
-
-        ScreenState::Input(InputMode::Editing) => {
-            // Make the cursor visible and ask tui-rs to put it at the specified coordinates after rendering
-            f.set_cursor(
-                // Put cursor past the end of the input text
-                chunks[1].x + app.input.width() as u16 + 1,
-                // Move one line down, from the border to the input line
-                chunks[1].y + 1,
-            )
-        }
-    }
-
-    let messages: Vec<ListItem> = app
-        .messages
-        .items
-        .iter()
-        .enumerate()
-        .map(|(i, m)| {
-            let content = vec![Spans::from(Span::raw(format!("{}: {}", i + 1, m)))];
-            ListItem::new(content)
-        })
-        .collect();
-
-    // Create a List from all list items and highlight the currently selected one
-    let messages = List::new(messages)
-        .style(Style::default())
-        .block(match app.screen_state {
-            ScreenState::List => Block::default()
-                .borders(Borders::ALL)
-                .title("List")
-                .border_style(Style::default().fg(Color::Yellow)),
-
-            _ => Block::default()
-                .borders(Borders::ALL)
-                .title("List")
-                .border_style(Style::default()),
-        })
-        .highlight_style(
-            Style::default()
-                .add_modifier(Modifier::BOLD)
-                .fg(Color::White),
-        )
-        .highlight_symbol("> ");
-
-    // We can now render the item list
-    f.render_stateful_widget(messages, chunks[2], &mut app.messages.state);
 }
 
 use tui::widgets::ListState;
@@ -407,9 +235,7 @@ impl<T> StatefulList<T> {
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if self.items.is_empty() {
-                    0
-                } else if i >= self.items.len() - 1 {
+                if self.items.is_empty() || i >= self.items.len() - 1 {
                     0
                 } else {
                     i + 1
@@ -476,7 +302,7 @@ impl<T> StatefulList<T> {
     }
 
     pub fn select(&mut self) {
-        if self.items.len() >= 1 {
+        if !self.items.is_empty() {
             self.state.select(Some(0));
         }
     }
