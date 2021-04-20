@@ -13,7 +13,7 @@ use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame, Terminal,
 };
 
@@ -50,7 +50,7 @@ impl Default for App {
 }
 
 struct App {
-    autocomplete: String,
+    autocomplete: &'static str,
     input: String,
     screen_state: ScreenState,
     messages: StatefulList<String>,
@@ -126,15 +126,15 @@ fn handle_input_in_editing(key_event: KeyEvent, app: &mut App) {
 
             match English::starting_with(&app.input).as_slice() {
                 [] => {
-                    app.autocomplete = "".to_string();
+                    app.autocomplete = "";
                     app.input.pop();
                 }
                 [only_one] => {
-                    app.autocomplete = "".to_string();
+                    app.autocomplete = "";
                     app.messages.push(only_one.to_string());
                     app.input = "".to_string();
                 }
-                [head, ..] => app.autocomplete = head.to_string(),
+                [head, ..] => app.autocomplete = head,
             }
         }
         KeyCode::Esc => app.screen_state = ScreenState::Input(InputMode::Normal),
@@ -142,24 +142,24 @@ fn handle_input_in_editing(key_event: KeyEvent, app: &mut App) {
             app.input.pop();
 
             match English::starting_with(&app.input).as_slice() {
-                [] => app.autocomplete = "".to_string(),
-                [head, ..] => app.autocomplete = head.to_string(),
+                [] => app.autocomplete = "",
+                [head, ..] => app.autocomplete = head,
             }
         }
+        KeyCode::Right => app.input = app.autocomplete.to_string(),
         KeyCode::Down => {
             app.messages.select();
             app.screen_state = ScreenState::List;
         }
+        KeyCode::Tab => {
+            if let Some(word) = English::next_starting_with(&app.input, &app.autocomplete) {
+                app.autocomplete = word;
+            }
+        }
         KeyCode::Enter => {
             app.input = app.input.trim().to_string();
-
-            match English::starting_with(&app.input).as_slice() {
-                [] => {}
-                [head, ..] => {
-                    app.messages.push(head.to_string());
-                    app.input = "".to_string();
-                }
-            }
+            app.messages.push(app.autocomplete.to_string());
+            app.input = "".to_string();
         }
         _ => {}
     }
@@ -172,7 +172,7 @@ fn handle_input_in_normal(key_event: KeyEvent, app: &mut App) {
         }
         KeyCode::Char('i') => app.screen_state = ScreenState::Input(InputMode::Editing),
         KeyCode::Esc => app.screen_state = ScreenState::Input(InputMode::Normal),
-        KeyCode::Down => {
+        KeyCode::Down | KeyCode::Tab => {
             app.messages.select();
             app.screen_state = ScreenState::List;
         }
@@ -189,13 +189,14 @@ fn handle_list(key_event: KeyEvent, app: &mut App) {
             app.messages.unselect();
             app.screen_state = ScreenState::Input(InputMode::Editing)
         }
-        KeyCode::Esc => {
+        KeyCode::Esc | KeyCode::Tab => {
             app.messages.unselect();
             app.screen_state = ScreenState::Input(InputMode::Normal)
         }
         KeyCode::Up if key_event.modifiers.contains(KeyModifiers::ALT) => {
             app.messages.move_up();
         }
+
         KeyCode::Up => {
             if app.messages.items.is_empty() {
                 app.messages.unselect();
@@ -214,12 +215,17 @@ fn handle_list(key_event: KeyEvent, app: &mut App) {
 }
 
 fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+    let help_box_size = match &app.screen_state {
+        ScreenState::List => 3,
+        _ => 1,
+    };
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
         .constraints(
             [
-                Constraint::Length(1),
+                Constraint::Min(help_box_size + 1),
                 Constraint::Length(3),
                 Constraint::Min(1),
             ]
@@ -227,46 +233,70 @@ fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         )
         .split(f.size());
 
-    let (msg, style) = match app.screen_state {
+    let (mut text, style) = match app.screen_state {
         ScreenState::Input(InputMode::Normal) => (
-            vec![
+            Text::from(Spans::from(vec![
                 Span::raw("Press "),
-                Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to exit, "),
-                Span::styled("i", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to start editing,"),
-                Span::styled(" ↓", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to access the word list"),
-            ],
+                Span::styled("q ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to exit, "),
+                Span::styled("i ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to start editing, "),
+                Span::styled("↓ ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("or "),
+                Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to access the word list"),
+            ])),
             Style::default().add_modifier(Modifier::RAPID_BLINK),
         ),
 
         ScreenState::Input(InputMode::Editing) => (
-            vec![
+            Text::from(Spans::from(vec![
                 Span::raw("Press "),
                 Span::styled("Esc ", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw("to stop editing, "),
                 Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to record the message, "),
+                Span::raw(" to add the word, "),
                 Span::styled("↓ ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to access the word list"),
-            ],
+                Span::raw("to access the word list, "),
+                Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to see the next autocomplete word"),
+            ])),
             Style::default(),
         ),
 
         ScreenState::List => (
-            vec![
-                Span::raw("Press "),
-                Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to stop go to normal mode, "),
-                Span::styled("i", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to start editing, "),
-            ],
+            {
+                let mut texts = Text::from(Spans::from(vec![
+                    Span::raw("Press "),
+                    Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw("to go to normal mode, "),
+                    Span::styled("i ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw("to add new words, "),
+                ]));
+
+                texts.extend(Text::from(Spans::from(vec![
+                    Span::styled(
+                        "      <ALT> + ↓ ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw("to move word down, "),
+                    Span::styled("<ALT> + ↑ ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw("to move word up, "),
+                ])));
+
+                texts.extend(Text::from(Spans::from(vec![
+                    Span::styled("      d ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw("to delete word, "),
+                    Span::styled("e ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw("to edit word "),
+                ])));
+
+                texts
+            },
             Style::default(),
         ),
     };
 
-    let mut text = Text::from(Spans::from(msg));
     text.patch_style(style);
 
     let help_message = Paragraph::new(text);

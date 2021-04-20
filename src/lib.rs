@@ -58,7 +58,7 @@ pub fn get_split_phrases(mnemonic_code: String) -> Result<Vec<String>, Error> {
     ]
     .iter()
     .map(|id| wordlist::English::get_word(*id as usize).unwrap())
-    .collect::<Vec<String>>()
+    .collect::<Vec<&'static str>>()
     .join(" ");
 
     let mut complete_phrases = Vec::with_capacity(5);

@@ -29,12 +29,12 @@ pub trait Wordlist {
     const WORDLIST: Lazy<WordlistData>;
 
     /// Returns the word of a given index from the word list.
-    fn get_word(index: usize) -> Result<String, WordlistError> {
+    fn get_word(index: usize) -> Result<&'static str, WordlistError> {
         Self::WORDLIST
             .words
             .get(&index)
             .ok_or(WordlistError::InvalidIndex(index))
-            .map(|word| word.to_string())
+            .map(|word| word.clone())
     }
 
     /// Returns the index of a given word from the word list.
@@ -68,5 +68,19 @@ pub trait Wordlist {
 
         words.sort();
         words
+    }
+
+    fn next_starting_with(start: &str, current_word: &str) -> Option<&'static str> {
+        let words = Self::starting_with(start);
+        let position = words.iter().position(|word| word == &current_word)?;
+
+        // if the last word cycle back to the first word in the list
+        let position = if position == (words.len() - 1) {
+            0
+        } else {
+            position
+        };
+
+        Some(words.get(position + 1)?.clone())
     }
 }
