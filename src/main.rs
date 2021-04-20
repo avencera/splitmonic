@@ -157,9 +157,12 @@ fn handle_input_in_editing(keycode: KeyCode, app: &mut App) {
         KeyCode::Enter => {
             app.input = app.input.trim().to_string();
 
-            if English::contains_word(&app.input) {
-                app.messages.push(app.input.clone());
-                app.input = "".to_string();
+            match English::starting_with(&app.input).as_slice() {
+                [] => {}
+                [head, ..] => {
+                    app.messages.push(head.to_string());
+                    app.input = "".to_string();
+                }
             }
         }
         _ => {}
@@ -412,8 +415,11 @@ impl<T> StatefulList<T> {
     }
 
     pub fn delete_selected(&mut self) {
-        if let Some(index) = self.state.selected() {
-            self.items.remove(index);
+        match self.state.selected() {
+            Some(index) if self.items.len() > index => {
+                self.items.remove(index);
+            }
+            _ => {}
         }
     }
 }
