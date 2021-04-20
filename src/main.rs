@@ -29,25 +29,26 @@ enum InputMode {
     Editing,
 }
 
+enum ScreenState {
+    Input(InputMode),
+    List,
+}
+
 impl Default for App {
     fn default() -> App {
         App {
             input: String::new(),
-            input_mode: InputMode::Normal,
-            messages: Vec::new(),
+            screen_state: ScreenState::Input(InputMode::Normal),
+            messages: StatefulList::new(),
             should_quit: false,
         }
     }
 }
 
 struct App {
-    /// Current value of the input box
     input: String,
-    /// Current input mode
-    input_mode: InputMode,
-    /// History of recorded messages
-    messages: Vec<String>,
-    /// Set when app is to quit,
+    screen_state: ScreenState,
+    messages: StatefulList<String>,
     should_quit: bool,
 }
 
@@ -92,9 +93,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     loop {
         terminal.draw(|f| draw(f, &mut app))?;
         match rx.recv()? {
-            Event::Input(event) => match &app.input_mode {
-                InputMode::Normal => handle_input_in_normal(event.code, &mut app),
-                InputMode::Editing => handle_input_in_editing(event.code, &mut app),
+            Event::Input(event) => match &app.screen_state {
+                ScreenState::Input(InputMode::Normal) => {
+                    handle_input_in_normal(event.code, &mut app)
+                }
+
+                ScreenState::Input(InputMode::Editing) => {
+                    handle_input_in_editing(event.code, &mut app)
+                }
+
+                ScreenState::List => handle_list(event.code, &mut app),
             },
             Event::Tick => {}
         }
@@ -113,13 +121,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn handle_input_in_editing(keycode: KeyCode, app: &mut App) {
     match keycode {
         KeyCode::Char(char) => app.input.push(char),
-        KeyCode::Esc => app.input_mode = InputMode::Normal,
+        KeyCode::Esc => app.screen_state = ScreenState::Input(InputMode::Normal),
         KeyCode::Backspace => {
             app.input.pop();
         }
+        KeyCode::Down => {
+            app.messages.select();
+            app.screen_state = ScreenState::List;
+        }
         KeyCode::Enter => {
-            app.messages.push(app.input.clone());
-            app.input = "".to_string();
+            app.input = app.input.trim().to_string();
+            if app.input.len() > 0 {
+                app.messages.push(app.input.clone());
+                app.input = "".to_string();
+            }
         }
         _ => {}
     }
@@ -130,7 +145,33 @@ fn handle_input_in_normal(keycode: KeyCode, app: &mut App) {
         KeyCode::Char('q') => {
             app.should_quit = true;
         }
-        KeyCode::Char('i') => app.input_mode = InputMode::Editing,
+        KeyCode::Char('i') => app.screen_state = ScreenState::Input(InputMode::Editing),
+        KeyCode::Esc => app.screen_state = ScreenState::Input(InputMode::Normal),
+        KeyCode::Down => {
+            app.messages.select();
+            app.screen_state = ScreenState::List;
+        }
+        KeyCode::Up => {
+            app.messages.previous();
+        }
+        _ => {}
+    }
+}
+
+fn handle_list(keycode: KeyCode, app: &mut App) {
+    match keycode {
+        KeyCode::Char('i') => {
+            app.messages.unselect();
+            app.screen_state = ScreenState::Input(InputMode::Editing)
+        }
+        KeyCode::Esc => {
+            app.screen_state = {
+                app.messages.unselect();
+                ScreenState::Input(InputMode::Normal)
+            }
+        }
+        KeyCode::Down => app.messages.next(),
+        KeyCode::Up => app.messages.previous(),
         _ => {}
     }
 }
@@ -149,24 +190,40 @@ fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         )
         .split(f.size());
 
-    let (msg, style) = match app.input_mode {
-        InputMode::Normal => (
+    let (msg, style) = match app.screen_state {
+        ScreenState::Input(InputMode::Normal) => (
             vec![
                 Span::raw("Press "),
                 Span::styled("q", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to exit, "),
                 Span::styled("i", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to start editing."),
+                Span::raw(" to start editing,"),
+                Span::styled(" ↓", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to access the word list"),
             ],
             Style::default().add_modifier(Modifier::RAPID_BLINK),
         ),
-        InputMode::Editing => (
+
+        ScreenState::Input(InputMode::Editing) => (
             vec![
                 Span::raw("Press "),
                 Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to stop editing, "),
+                Span::raw("to stop editing, "),
                 Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to record the message"),
+                Span::raw(" to record the message, "),
+                Span::styled("↓ ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to access the word list"),
+            ],
+            Style::default(),
+        ),
+
+        ScreenState::List => (
+            vec![
+                Span::raw("Press "),
+                Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to stop go to normal mode, "),
+                Span::styled("i", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to start editing, "),
             ],
             Style::default(),
         ),
@@ -179,19 +236,19 @@ fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     f.render_widget(help_message, chunks[0]);
 
     let input = Paragraph::new(app.input.as_ref())
-        .style(match app.input_mode {
-            InputMode::Normal => Style::default(),
-            InputMode::Editing => Style::default().fg(Color::Yellow),
+        .style(match app.screen_state {
+            ScreenState::Input(InputMode::Editing) => Style::default().fg(Color::Yellow),
+            _ => Style::default(),
         })
         .block(Block::default().borders(Borders::ALL).title("Input"));
     f.render_widget(input, chunks[1]);
 
-    match app.input_mode {
-        InputMode::Normal =>
-            // Hide the cursor. `Frame` does this by default, so we don't need to do anything here
-            {}
+    match app.screen_state {
+        ScreenState::List => {}
 
-        InputMode::Editing => {
+        ScreenState::Input(InputMode::Normal) => {}
+
+        ScreenState::Input(InputMode::Editing) => {
             // Make the cursor visible and ask tui-rs to put it at the specified coordinates after rendering
             f.set_cursor(
                 // Put cursor past the end of the input text
@@ -204,16 +261,104 @@ fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let messages: Vec<ListItem> = app
         .messages
+        .items
         .iter()
         .enumerate()
         .map(|(i, m)| {
-            let content = vec![Spans::from(Span::raw(format!("{}: {}", i, m)))];
+            let content = vec![Spans::from(Span::raw(format!("{}: {}", i + 1, m)))];
             ListItem::new(content)
         })
         .collect();
 
-    let messages =
-        List::new(messages).block(Block::default().borders(Borders::ALL).title("Messages"));
+    // Create a List from all list items and highlight the currently selected one
+    let messages = List::new(messages)
+        .style(Style::default())
+        .block(match app.screen_state {
+            ScreenState::List => Block::default()
+                .borders(Borders::ALL)
+                .title("List")
+                .border_style(Style::default().fg(Color::Yellow)),
 
-    f.render_widget(messages, chunks[2]);
+            _ => Block::default()
+                .borders(Borders::ALL)
+                .title("List")
+                .border_style(Style::default()),
+        })
+        .highlight_style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(Color::White),
+        )
+        .highlight_symbol("> ");
+
+    // We can now render the item list
+    f.render_stateful_widget(messages, chunks[2], &mut app.messages.state);
+}
+
+use tui::widgets::ListState;
+pub struct StatefulList<T> {
+    pub state: ListState,
+    pub items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+    pub fn new() -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items: Vec::new(),
+        }
+    }
+
+    pub fn with_items(items: Vec<T>) -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items,
+        }
+    }
+
+    pub fn push(&mut self, item: T) {
+        self.items.push(item)
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if self.items.is_empty() {
+                    0
+                } else if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if self.items.is_empty() {
+                    0
+                } else if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    pub fn select(&mut self) {
+        if self.items.len() >= 1 {
+            self.state.select(Some(0));
+        }
+    }
+
+    pub fn unselect(&mut self) {
+        self.state.select(None);
+    }
 }
