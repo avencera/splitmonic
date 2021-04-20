@@ -1,6 +1,6 @@
 use crossbeam_channel::unbounded;
 use crossterm::{
-    event::{self, Event as CEvent, KeyCode},
+    event::{self, Event as CEvent, KeyCode, KeyEvent, KeyModifiers},
     execute, terminal,
 };
 use std::{
@@ -99,15 +99,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         terminal.draw(|f| draw(f, &mut app))?;
         match rx.recv()? {
             Event::Input(event) => match &app.screen_state {
-                ScreenState::Input(InputMode::Normal) => {
-                    handle_input_in_normal(event.code, &mut app)
-                }
+                ScreenState::Input(InputMode::Normal) => handle_input_in_normal(event, &mut app),
 
-                ScreenState::Input(InputMode::Editing) => {
-                    handle_input_in_editing(event.code, &mut app)
-                }
+                ScreenState::Input(InputMode::Editing) => handle_input_in_editing(event, &mut app),
 
-                ScreenState::List => handle_list(event.code, &mut app),
+                ScreenState::List => handle_list(event, &mut app),
             },
             Event::Tick => {}
         }
@@ -123,8 +119,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn handle_input_in_editing(keycode: KeyCode, app: &mut App) {
-    match keycode {
+fn handle_input_in_editing(key_event: KeyEvent, app: &mut App) {
+    match key_event.code {
         KeyCode::Char(char) => {
             app.input.push(char);
 
@@ -169,8 +165,8 @@ fn handle_input_in_editing(keycode: KeyCode, app: &mut App) {
     }
 }
 
-fn handle_input_in_normal(keycode: KeyCode, app: &mut App) {
-    match keycode {
+fn handle_input_in_normal(key_event: KeyEvent, app: &mut App) {
+    match key_event.code {
         KeyCode::Char('q') => {
             app.should_quit = true;
         }
@@ -187,8 +183,8 @@ fn handle_input_in_normal(keycode: KeyCode, app: &mut App) {
     }
 }
 
-fn handle_list(keycode: KeyCode, app: &mut App) {
-    match keycode {
+fn handle_list(key_event: KeyEvent, app: &mut App) {
+    match key_event.code {
         KeyCode::Char('i') => {
             app.messages.unselect();
             app.screen_state = ScreenState::Input(InputMode::Editing)
@@ -196,6 +192,9 @@ fn handle_list(keycode: KeyCode, app: &mut App) {
         KeyCode::Esc => {
             app.messages.unselect();
             app.screen_state = ScreenState::Input(InputMode::Normal)
+        }
+        KeyCode::Up if key_event.modifiers.contains(KeyModifiers::ALT) => {
+            app.messages.move_up();
         }
         KeyCode::Up => {
             if app.messages.items.is_empty() {
@@ -206,6 +205,9 @@ fn handle_list(keycode: KeyCode, app: &mut App) {
             }
         }
         KeyCode::Char('d') => app.messages.delete_selected(),
+        KeyCode::Down if key_event.modifiers.contains(KeyModifiers::ALT) => {
+            app.messages.move_down();
+        }
         KeyCode::Down => app.messages.next(),
         _ => {}
     }
@@ -402,6 +404,45 @@ impl<T> StatefulList<T> {
             None => 0,
         };
         self.state.select(Some(i));
+    }
+
+    pub fn move_up(&mut self) {
+        match self.state.selected() {
+            // top of list, move to the bottom
+            Some(0) if self.items.len() >= 2 => {
+                let new_index = self.items.len() - 1;
+
+                let item = self.items.remove(0);
+                self.items.insert(new_index, item);
+                self.state.select(Some(new_index));
+            }
+            Some(index) if self.items.len() >= 2 => {
+                let item = self.items.remove(index);
+                self.items.insert(index - 1, item);
+                self.state.select(Some(index - 1));
+            }
+            _ => {}
+        }
+    }
+
+    pub fn move_down(&mut self) {
+        match self.state.selected() {
+            // bottom of the list, move to top
+            Some(index) if self.items.len() - 1 == index => {
+                let new_index = 0;
+
+                let item = self.items.remove(index);
+                self.items.insert(new_index, item);
+                self.state.select(Some(new_index));
+            }
+
+            Some(index) if self.items.len() >= 2 => {
+                let item = self.items.remove(index);
+                self.items.insert(index + 1, item);
+                self.state.select(Some(index + 1));
+            }
+            _ => {}
+        }
     }
 
     pub fn select(&mut self) {

@@ -52,7 +52,9 @@ pub trait Wordlist {
 
     /// Returns the word list as a string.
     fn get_all() -> Vec<&'static str> {
-        Self::WORDLIST.words.values().cloned().collect()
+        let mut words: Vec<&'static str> = Self::WORDLIST.words.values().cloned().collect();
+        words.sort();
+        words
     }
 
     fn starting_with(start: &str) -> Vec<&'static str> {
