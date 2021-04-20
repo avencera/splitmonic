@@ -202,6 +202,7 @@ fn handle_list(keycode: KeyCode, app: &mut App) {
                 app.messages.previous()
             }
         }
+        KeyCode::Char('d') => app.messages.delete_selected(),
         KeyCode::Down => app.messages.next(),
         _ => {}
     }
@@ -408,5 +409,11 @@ impl<T> StatefulList<T> {
 
     pub fn unselect(&mut self) {
         self.state.select(None);
+    }
+
+    pub fn delete_selected(&mut self) {
+        if let Some(index) = self.state.selected() {
+            self.items.remove(index);
+        }
     }
 }
