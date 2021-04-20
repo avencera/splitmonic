@@ -19,4 +19,9 @@ thiserror = "1.0"
 zeroize = "1.2"
 
 # bin
+crossterm = "0.19"
 structopt = "0.3"
+tui = {version = "0.14", default-features = false, features = ["crossterm"]}
+
+crossbeam-channel = "0.5"
+unicode-width = "0.1"
