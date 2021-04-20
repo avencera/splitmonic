@@ -129,7 +129,10 @@ fn handle_input_in_editing(keycode: KeyCode, app: &mut App) {
             app.input.push(char);
 
             match English::starting_with(&app.input).as_slice() {
-                [] => app.autocomplete = "".to_string(),
+                [] => {
+                    app.autocomplete = "".to_string();
+                    app.input.pop();
+                }
                 [only_one] => {
                     app.autocomplete = "".to_string();
                     app.messages.push(only_one.to_string());
@@ -265,12 +268,15 @@ fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
 
     let input_text = match app.screen_state {
         ScreenState::Input(InputMode::Editing) => {
+            let autocomplete = if app.autocomplete.len() >= app.input.len() {
+                &app.autocomplete[app.input.len()..]
+            } else {
+                &app.autocomplete
+            };
+
             vec![Spans::from(vec![
                 Span::raw(&app.input),
-                Span::styled(
-                    &app.autocomplete[app.input.len()..],
-                    Style::default().fg(Color::DarkGray),
-                ),
+                Span::styled(autocomplete, Style::default().fg(Color::DarkGray)),
             ])]
         }
         _ => vec![Spans::from(Span::raw(""))],
