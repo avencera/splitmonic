@@ -33,7 +33,7 @@ pub trait Wordlist {
         Self::WORDLIST
             .words
             .get(&index)
-            .ok_or_else(|| WordlistError::InvalidIndex(index))
+            .ok_or(WordlistError::InvalidIndex(index))
             .map(|word| word.to_string())
     }
 
@@ -46,8 +46,25 @@ pub trait Wordlist {
             .map(|usize| *usize)
     }
 
+    fn contains_word(word: &str) -> bool {
+        Self::get_index(word).is_ok()
+    }
+
     /// Returns the word list as a string.
     fn get_all() -> Vec<&'static str> {
         Self::WORDLIST.words.values().cloned().collect()
+    }
+
+    fn starting_with(start: &str) -> Vec<&'static str> {
+        let mut words = Self::WORDLIST
+            .words
+            .values()
+            .into_iter()
+            .filter(|word| word.starts_with(start))
+            .cloned()
+            .collect::<Vec<&'static str>>();
+
+        words.sort();
+        words
     }
 }

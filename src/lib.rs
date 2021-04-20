@@ -1,5 +1,5 @@
 pub mod shamir;
-mod wordlist;
+pub mod wordlist;
 
 use crate::shamir::SecretData;
 use bip39::Mnemonic;

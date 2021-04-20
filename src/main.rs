@@ -17,6 +17,9 @@ use tui::{
     Frame, Terminal,
 };
 
+use splitmonic::wordlist::english::English;
+use splitmonic::wordlist::Wordlist;
+
 use unicode_width::UnicodeWidthStr;
 
 enum Event<I> {
@@ -37,6 +40,7 @@ enum ScreenState {
 impl Default for App {
     fn default() -> App {
         App {
+            autocomplete: English::get_word(0).unwrap(),
             input: String::new(),
             screen_state: ScreenState::Input(InputMode::Normal),
             messages: StatefulList::new(),
@@ -46,6 +50,7 @@ impl Default for App {
 }
 
 struct App {
+    autocomplete: String,
     input: String,
     screen_state: ScreenState,
     messages: StatefulList<String>,
@@ -120,10 +125,27 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn handle_input_in_editing(keycode: KeyCode, app: &mut App) {
     match keycode {
-        KeyCode::Char(char) => app.input.push(char),
+        KeyCode::Char(char) => {
+            app.input.push(char);
+
+            match English::starting_with(&app.input).as_slice() {
+                [] => app.autocomplete = "".to_string(),
+                [only_one] => {
+                    app.autocomplete = "".to_string();
+                    app.messages.push(only_one.to_string());
+                    app.input = "".to_string();
+                }
+                [head, ..] => app.autocomplete = head.to_string(),
+            }
+        }
         KeyCode::Esc => app.screen_state = ScreenState::Input(InputMode::Normal),
         KeyCode::Backspace => {
             app.input.pop();
+
+            match English::starting_with(&app.input).as_slice() {
+                [] => app.autocomplete = "".to_string(),
+                [head, ..] => app.autocomplete = head.to_string(),
+            }
         }
         KeyCode::Down => {
             app.messages.select();
@@ -131,7 +153,8 @@ fn handle_input_in_editing(keycode: KeyCode, app: &mut App) {
         }
         KeyCode::Enter => {
             app.input = app.input.trim().to_string();
-            if app.input.len() > 0 {
+
+            if English::contains_word(&app.input) {
                 app.messages.push(app.input.clone());
                 app.input = "".to_string();
             }
@@ -165,13 +188,18 @@ fn handle_list(keycode: KeyCode, app: &mut App) {
             app.screen_state = ScreenState::Input(InputMode::Editing)
         }
         KeyCode::Esc => {
-            app.screen_state = {
+            app.messages.unselect();
+            app.screen_state = ScreenState::Input(InputMode::Normal)
+        }
+        KeyCode::Up => {
+            if app.messages.items.is_empty() {
                 app.messages.unselect();
-                ScreenState::Input(InputMode::Normal)
+                app.screen_state = ScreenState::Input(InputMode::Normal)
+            } else {
+                app.messages.previous()
             }
         }
         KeyCode::Down => app.messages.next(),
-        KeyCode::Up => app.messages.previous(),
         _ => {}
     }
 }
@@ -207,7 +235,7 @@ fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         ScreenState::Input(InputMode::Editing) => (
             vec![
                 Span::raw("Press "),
-                Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled("Esc ", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw("to stop editing, "),
                 Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw(" to record the message, "),
@@ -235,12 +263,26 @@ fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
     let help_message = Paragraph::new(text);
     f.render_widget(help_message, chunks[0]);
 
-    let input = Paragraph::new(app.input.as_ref())
+    let input_text = match app.screen_state {
+        ScreenState::Input(InputMode::Editing) => {
+            vec![Spans::from(vec![
+                Span::raw(&app.input),
+                Span::styled(
+                    &app.autocomplete[app.input.len()..],
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ])]
+        }
+        _ => vec![Spans::from(Span::raw(""))],
+    };
+
+    let input = Paragraph::new(input_text)
         .style(match app.screen_state {
             ScreenState::Input(InputMode::Editing) => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         })
         .block(Block::default().borders(Borders::ALL).title("Input"));
+
     f.render_widget(input, chunks[1]);
 
     match app.screen_state {
