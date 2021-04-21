@@ -14,7 +14,8 @@ use std::{borrow::Cow, error::Error};
 
 pub enum InputMode {
     Normal,
-    Editing,
+    Inserting,
+    Editing(Option<usize>),
 }
 
 pub enum Screen {
@@ -67,7 +68,12 @@ impl SplitApp {
             match self.rx.recv()? {
                 Event::Input(event) => match self.screen {
                     Screen::WordInput(InputMode::Normal) => self.update_input_in_normal(event),
-                    Screen::WordInput(InputMode::Editing) => self.update_input_in_editing(event),
+                    Screen::WordInput(InputMode::Inserting) => {
+                        self.update_input_in_editing(event, None)
+                    }
+                    Screen::WordInput(InputMode::Editing(edit)) => {
+                        self.update_input_in_editing(event, edit)
+                    }
                     Screen::List => self.update_in_list(event),
                     Screen::SaveLocationInput => self.update_in_save_location(event),
                 },
@@ -99,7 +105,7 @@ impl SplitApp {
         Ok(())
     }
 
-    fn update_input_in_editing(&mut self, key_event: KeyEvent) {
+    fn update_input_in_editing(&mut self, key_event: KeyEvent, edit: Option<usize>) {
         match key_event.code {
             KeyCode::Char(char) => {
                 self.input.push(char);
@@ -111,7 +117,7 @@ impl SplitApp {
                     }
                     [only_one] => {
                         self.autocomplete = "";
-                        self.add_word_to_mnemonic(only_one.to_string());
+                        self.add_word_to_mnemonic(only_one.to_string(), edit);
                         self.input = "".to_string();
                     }
                     [head, ..] => self.autocomplete = head,
@@ -138,7 +144,7 @@ impl SplitApp {
             }
             KeyCode::Enter => {
                 self.input = self.input.trim().to_string();
-                self.add_word_to_mnemonic(self.autocomplete.to_string());
+                self.add_word_to_mnemonic(self.autocomplete.to_string(), edit);
                 self.input = "".to_string();
             }
             _ => {}
@@ -150,7 +156,7 @@ impl SplitApp {
             KeyCode::Char('q') => {
                 self.should_quit = true;
             }
-            KeyCode::Char('i') => self.screen = Screen::WordInput(InputMode::Editing),
+            KeyCode::Char('i') => self.screen = Screen::WordInput(InputMode::Inserting),
             KeyCode::Esc => self.screen = Screen::WordInput(InputMode::Normal),
             KeyCode::Down | KeyCode::Tab => {
                 self.mnemonic.select();
@@ -168,7 +174,13 @@ impl SplitApp {
             KeyCode::Char('i') => {
                 self.phrases = empty_phrases();
                 self.mnemonic.unselect();
-                self.screen = Screen::WordInput(InputMode::Editing)
+                self.screen = Screen::WordInput(InputMode::Inserting)
+            }
+            KeyCode::Char('e') => {
+                let current = self.mnemonic.selected();
+                self.phrases = empty_phrases();
+                self.mnemonic.unselect();
+                self.screen = Screen::WordInput(InputMode::Editing(current))
             }
             KeyCode::Esc | KeyCode::Tab => {
                 self.mnemonic.unselect();
@@ -215,18 +227,25 @@ impl SplitApp {
         }
     }
 
-    fn add_word_to_mnemonic(&mut self, word: String) {
-        // when trying to add a word when already having 24 remove the last one
-        if self.mnemonic.len() >= 24 {
-            self.mnemonic.pop();
-        }
-
-        if self.mnemonic.len() < 24 {
-            self.mnemonic.push(word);
-        }
-
-        if self.mnemonic.len() == 24 {
-            self.screen = Screen::List
+    fn add_word_to_mnemonic(&mut self, word: String, place: Option<usize>) {
+        match (place, self.mnemonic.len()) {
+            (None, 24) => {
+                self.mnemonic.pop();
+                self.mnemonic.push(word);
+                self.screen = Screen::List
+            }
+            (None, len) => {
+                self.mnemonic.push(word);
+                if len == 23 {
+                    self.screen = Screen::List
+                }
+            }
+            (Some(index), len) => {
+                self.mnemonic.items[index] = word;
+                if len == 24 {
+                    self.screen = Screen::List
+                }
+            }
         }
     }
 }

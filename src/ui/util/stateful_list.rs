@@ -24,6 +24,10 @@ impl<T> StatefulList<T> {
         self.items.len()
     }
 
+    pub fn selected(&self) -> Option<usize> {
+        self.state.selected()
+    }
+
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {

@@ -52,7 +52,7 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
         Screen::List => {}
         Screen::SaveLocationInput => {}
         Screen::WordInput(InputMode::Normal) => {}
-        Screen::WordInput(InputMode::Editing) => {
+        Screen::WordInput(InputMode::Inserting) | Screen::WordInput(InputMode::Editing(_)) => {
             // Make the cursor visible and ask tui-rs to put it at the specified coordinates after rendering
             frame.set_cursor(
                 // Put cursor past the end of the input text
@@ -96,7 +96,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
             Style::default().add_modifier(Modifier::RAPID_BLINK),
         ),
 
-        Screen::WordInput(InputMode::Editing) => (
+        Screen::WordInput(InputMode::Inserting) | Screen::WordInput(InputMode::Editing(_)) => (
             Text::from(Spans::from(vec![
                 Span::raw("Press "),
                 Span::styled("Esc ", Style::default().add_modifier(Modifier::BOLD)),
@@ -169,7 +169,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
 
 fn input_block(app: &SplitApp) -> Paragraph {
     let input_text = match app.screen {
-        Screen::WordInput(InputMode::Editing) => {
+        Screen::WordInput(InputMode::Inserting) | Screen::WordInput(InputMode::Editing(_)) => {
             let autocomplete = if app.autocomplete.len() >= app.input.len() {
                 &app.autocomplete[app.input.len()..]
             } else {
@@ -186,7 +186,8 @@ fn input_block(app: &SplitApp) -> Paragraph {
 
     Paragraph::new(input_text)
         .style(match app.screen {
-            Screen::WordInput(InputMode::Editing) => Style::default().fg(Color::Yellow),
+            Screen::WordInput(InputMode::Inserting) => Style::default().fg(Color::Yellow),
+            Screen::WordInput(InputMode::Editing(_)) => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         })
         .block(Block::default().borders(Borders::ALL).title("Input"))
@@ -279,7 +280,7 @@ fn render_phrases_blocks(app: &mut SplitApp, frame: &mut Frame<Backend>, chunks:
 fn save_area(app: &SplitApp) -> Paragraph {
     Paragraph::new("")
         .style(match app.screen {
-            Screen::WordInput(InputMode::Editing) => Style::default().fg(Color::Yellow),
+            Screen::WordInput(InputMode::Inserting) => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         })
         .block(
