@@ -158,15 +158,15 @@ mod recover {
         let mut without_ids = Vec::with_capacity(split_phrases.len());
 
         for split_phrase in split_phrases {
-            if set_id.len() == 0 {
-                set_id = split_phrase[0..3].into_iter().cloned().collect()
+            if set_id.is_empty() {
+                set_id = split_phrase[0..3].iter().cloned().collect()
             }
 
             if set_id[0..3] != split_phrase[0..3] {
                 return Err(Error::MismatchedSet);
             }
 
-            without_ids.push(split_phrase[3..].into_iter().cloned().collect())
+            without_ids.push(split_phrase[3..].iter().cloned().collect())
         }
 
         Ok(without_ids)
@@ -194,9 +194,9 @@ mod recover {
 //   vec!["how", "are", "you"]
 // ])
 // ```
-fn split_phrases_into_words(split_phrases: &Vec<String>) -> Vec<Vec<&str>> {
+fn split_phrases_into_words(split_phrases: &[String]) -> Vec<Vec<&str>> {
     split_phrases
-        .into_iter()
+        .iter()
         .map(|phrase| phrase.split(' ').collect::<Vec<&str>>())
         .collect()
 }

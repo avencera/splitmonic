@@ -2,15 +2,15 @@ mod view;
 
 use crate::{ui::util::stateful_list::StatefulList, Event, Term};
 
+use crossbeam_channel::Receiver;
 use splitmonic::wordlist::english::English;
 use splitmonic::wordlist::Wordlist;
 
-use crossbeam_channel::Receiver;
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute, terminal,
 };
-use std::error::Error;
+use std::{borrow::Cow, error::Error};
 
 pub enum InputMode {
     Normal,
@@ -18,8 +18,9 @@ pub enum InputMode {
 }
 
 pub enum Screen {
-    Input(InputMode),
+    WordInput(InputMode),
     List,
+    SaveLocationInput,
 }
 
 pub struct SplitApp {
@@ -30,6 +31,8 @@ pub struct SplitApp {
     pub screen: Screen,
     pub mnemonic: StatefulList<String>,
     pub should_quit: bool,
+
+    pub save_location: String,
 }
 
 impl SplitApp {
@@ -38,9 +41,14 @@ impl SplitApp {
             rx,
             autocomplete: English::get_word(0).unwrap(),
             input: String::new(),
-            screen: Screen::Input(InputMode::Normal),
+            screen: Screen::WordInput(InputMode::Normal),
             mnemonic: StatefulList::new(),
             should_quit: false,
+            save_location: dirs::home_dir()
+                .as_ref()
+                .map(|path_buf| path_buf.to_string_lossy())
+                .unwrap_or_else(|| Cow::Borrowed("/"))
+                .to_string(),
         }
     }
 
@@ -50,9 +58,10 @@ impl SplitApp {
 
             match self.rx.recv()? {
                 Event::Input(event) => match self.screen {
-                    Screen::Input(InputMode::Normal) => self.update_input_in_normal(event),
-                    Screen::Input(InputMode::Editing) => self.update_input_in_editing(event),
+                    Screen::WordInput(InputMode::Normal) => self.update_input_in_normal(event),
+                    Screen::WordInput(InputMode::Editing) => self.update_input_in_editing(event),
                     Screen::List => self.update_in_list(event),
+                    Screen::SaveLocationInput => self.update_in_save_location(event),
                 },
                 Event::Tick => {}
             }
@@ -80,13 +89,13 @@ impl SplitApp {
                     }
                     [only_one] => {
                         self.autocomplete = "";
-                        self.mnemonic.push(only_one.to_string());
+                        self.add_word_to_mnemonic(only_one.to_string());
                         self.input = "".to_string();
                     }
                     [head, ..] => self.autocomplete = head,
                 }
             }
-            KeyCode::Esc => self.screen = Screen::Input(InputMode::Normal),
+            KeyCode::Esc => self.screen = Screen::WordInput(InputMode::Normal),
             KeyCode::Backspace => {
                 self.input.pop();
 
@@ -107,7 +116,7 @@ impl SplitApp {
             }
             KeyCode::Enter => {
                 self.input = self.input.trim().to_string();
-                self.mnemonic.push(self.autocomplete.to_string());
+                self.add_word_to_mnemonic(self.autocomplete.to_string());
                 self.input = "".to_string();
             }
             _ => {}
@@ -119,8 +128,8 @@ impl SplitApp {
             KeyCode::Char('q') => {
                 self.should_quit = true;
             }
-            KeyCode::Char('i') => self.screen = Screen::Input(InputMode::Editing),
-            KeyCode::Esc => self.screen = Screen::Input(InputMode::Normal),
+            KeyCode::Char('i') => self.screen = Screen::WordInput(InputMode::Editing),
+            KeyCode::Esc => self.screen = Screen::WordInput(InputMode::Normal),
             KeyCode::Down | KeyCode::Tab => {
                 self.mnemonic.select();
                 self.screen = Screen::List;
@@ -136,11 +145,11 @@ impl SplitApp {
         match key_event.code {
             KeyCode::Char('i') => {
                 self.mnemonic.unselect();
-                self.screen = Screen::Input(InputMode::Editing)
+                self.screen = Screen::WordInput(InputMode::Editing)
             }
             KeyCode::Esc | KeyCode::Tab => {
                 self.mnemonic.unselect();
-                self.screen = Screen::Input(InputMode::Normal)
+                self.screen = Screen::WordInput(InputMode::Normal)
             }
             KeyCode::Up if key_event.modifiers.contains(KeyModifiers::ALT) => {
                 self.mnemonic.move_up();
@@ -149,7 +158,7 @@ impl SplitApp {
             KeyCode::Up => {
                 if self.mnemonic.items.is_empty() {
                     self.mnemonic.unselect();
-                    self.screen = Screen::Input(InputMode::Normal)
+                    self.screen = Screen::WordInput(InputMode::Normal)
                 } else {
                     self.mnemonic.previous()
                 }
@@ -160,6 +169,27 @@ impl SplitApp {
             }
             KeyCode::Down => self.mnemonic.next(),
             _ => {}
+        }
+    }
+
+    fn update_in_save_location(&mut self, key_event: KeyEvent) {
+        match key_event.code {
+            _ => self.screen = Screen::List,
+        }
+    }
+
+    fn add_word_to_mnemonic(&mut self, word: String) {
+        // when trying to add a word when already having 24 remove the last one
+        if self.mnemonic.len() >= 24 {
+            self.mnemonic.pop();
+        }
+
+        if self.mnemonic.len() < 24 {
+            self.mnemonic.push(word);
+        }
+
+        if self.mnemonic.len() == 24 {
+            self.screen = Screen::List
         }
     }
 }

@@ -14,8 +14,12 @@ use unicode_width::UnicodeWidthStr;
 
 pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
     let help_box_size = match &app.screen {
-        Screen::List => 3,
+        Screen::List => 4,
         _ => 1,
+    };
+
+    let input_box_size = match &app.screen {
+        _ => 3,
     };
 
     // setup layout
@@ -25,8 +29,8 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
         .constraints(
             [
                 Constraint::Min(help_box_size + 1),
-                Constraint::Length(3),
-                Constraint::Min(1),
+                Constraint::Length(input_box_size),
+                Constraint::Min(2),
             ]
             .as_ref(),
         )
@@ -34,14 +38,19 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
 
     // render blocks
     frame.render_widget(help_message_block(&app), chunks[0]);
-    frame.render_widget(input_block(&app), chunks[1]);
 
+    // conditionally render input_block
+    match app.screen {
+        Screen::SaveLocationInput => {}
+        _ => frame.render_widget(input_block(&app), chunks[1]),
+    };
+
+    // cursor handling
     match app.screen {
         Screen::List => {}
-
-        Screen::Input(InputMode::Normal) => {}
-
-        Screen::Input(InputMode::Editing) => {
+        Screen::SaveLocationInput => {}
+        Screen::WordInput(InputMode::Normal) => {}
+        Screen::WordInput(InputMode::Editing) => {
             // Make the cursor visible and ask tui-rs to put it at the specified coordinates after rendering
             frame.set_cursor(
                 // Put cursor past the end of the input text
@@ -59,7 +68,7 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
 
 fn help_message_block(app: &SplitApp) -> Paragraph {
     let (mut text, style) = match app.screen {
-        Screen::Input(InputMode::Normal) => (
+        Screen::WordInput(InputMode::Normal) => (
             Text::from(Spans::from(vec![
                 Span::raw("Press "),
                 Span::styled("q ", Style::default().add_modifier(Modifier::BOLD)),
@@ -74,7 +83,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
             Style::default().add_modifier(Modifier::RAPID_BLINK),
         ),
 
-        Screen::Input(InputMode::Editing) => (
+        Screen::WordInput(InputMode::Editing) => (
             Text::from(Spans::from(vec![
                 Span::raw("Press "),
                 Span::styled("Esc ", Style::default().add_modifier(Modifier::BOLD)),
@@ -116,8 +125,27 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
                     Span::raw("to edit word "),
                 ])));
 
+                if app.mnemonic.len() == 24 {
+                    texts.extend(Text::from(Spans::from(vec![
+                        Span::styled(
+                            "      <ENTER> ",
+                            Style::default().add_modifier(Modifier::BOLD),
+                        ),
+                        Span::raw("to generate your split phrases"),
+                    ])));
+                }
+
                 texts
             },
+            Style::default(),
+        ),
+
+        Screen::SaveLocationInput => (
+            Text::from(Spans::from(vec![
+                Span::raw("Press "),
+                Span::styled("<ENTER> ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to generate your five (5) split phrases"),
+            ])),
             Style::default(),
         ),
     };
@@ -128,7 +156,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
 
 fn input_block(app: &SplitApp) -> Paragraph {
     let input_text = match app.screen {
-        Screen::Input(InputMode::Editing) => {
+        Screen::WordInput(InputMode::Editing) => {
             let autocomplete = if app.autocomplete.len() >= app.input.len() {
                 &app.autocomplete[app.input.len()..]
             } else {
@@ -145,7 +173,7 @@ fn input_block(app: &SplitApp) -> Paragraph {
 
     Paragraph::new(input_text)
         .style(match app.screen {
-            Screen::Input(InputMode::Editing) => Style::default().fg(Color::Yellow),
+            Screen::WordInput(InputMode::Editing) => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         })
         .block(Block::default().borders(Borders::ALL).title("Input"))
@@ -163,20 +191,21 @@ fn mnemonic_block<'a, 'b>(app: &'a SplitApp) -> List<'b> {
         })
         .collect();
 
+    let block_border_style = match (&app.screen, app.mnemonic.len()) {
+        (_, 24) => Style::default().fg(Color::Green),
+        (Screen::List, _) => Style::default().fg(Color::Yellow),
+        _ => Style::default(),
+    };
+
     // Create a List from all list items and highlight the currently selected one
     List::new(messages)
         .style(Style::default())
-        .block(match app.screen {
-            Screen::List => Block::default()
+        .block(
+            Block::default()
                 .borders(Borders::ALL)
                 .title("Mnemonic")
-                .border_style(Style::default().fg(Color::Yellow)),
-
-            _ => Block::default()
-                .borders(Borders::ALL)
-                .title("Mnemonic")
-                .border_style(Style::default()),
-        })
+                .border_style(block_border_style),
+        )
         .highlight_style(
             Style::default()
                 .add_modifier(Modifier::BOLD)
