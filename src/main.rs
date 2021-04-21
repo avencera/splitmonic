@@ -3,7 +3,7 @@ mod ui;
 
 use crossbeam_channel::unbounded;
 use crossterm::{
-    event::{self, Event as CEvent},
+    event::{self, Event as CEvent, KeyEvent},
     execute, terminal,
 };
 use std::{
@@ -16,8 +16,14 @@ use tui::{backend::CrosstermBackend, Terminal};
 
 use crate::split_app::SplitApp;
 
-pub enum Event<I> {
-    Input(I),
+pub enum Effect {
+    ReceivedErrorMessage(String),
+    ReceivedPhrases(Vec<String>),
+}
+
+pub enum Event {
+    Input(KeyEvent),
+    Effect(Effect),
     Tick,
 }
 
@@ -35,9 +41,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Setup input handling
     let (tx, rx) = unbounded();
-    let mut split_app = SplitApp::new(rx);
+    let mut split_app = SplitApp::new(tx.clone(), rx);
 
-    let tick_rate = Duration::from_millis(200);
+    let tick_rate = Duration::from_secs(10);
     thread::spawn(move || {
         let mut last_tick = Instant::now();
         loop {

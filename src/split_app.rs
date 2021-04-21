@@ -1,8 +1,8 @@
 mod view;
 
-use crate::{ui::util::stateful_list::StatefulList, Event, Term};
+use crate::{ui::util::stateful_list::StatefulList, Effect, Event, Term};
 
-use crossbeam_channel::Receiver;
+use crossbeam_channel::{Receiver, Sender};
 use splitmonic::wordlist::english::English;
 use splitmonic::wordlist::Wordlist;
 
@@ -24,7 +24,10 @@ pub enum Screen {
 }
 
 pub struct SplitApp {
-    rx: Receiver<Event<KeyEvent>>,
+    tx: Sender<Event>,
+    rx: Receiver<Event>,
+
+    pub message: Option<String>,
 
     pub autocomplete: &'static str,
     pub input: String,
@@ -38,20 +41,16 @@ pub struct SplitApp {
 }
 
 impl SplitApp {
-    pub fn new(rx: Receiver<Event<KeyEvent>>) -> Self {
+    pub fn new(tx: Sender<Event>, rx: Receiver<Event>) -> Self {
         Self {
+            tx,
             rx,
+            message: None,
             autocomplete: English::get_word(0).unwrap(),
             input: String::new(),
             screen: Screen::WordInput(InputMode::Normal),
             mnemonic: StatefulList::new(),
-            phrases: [
-                Vec::with_capacity(28),
-                Vec::with_capacity(28),
-                Vec::with_capacity(28),
-                Vec::with_capacity(28),
-                Vec::with_capacity(28),
-            ],
+            phrases: empty_phrases(),
             should_quit: false,
             save_location: dirs::home_dir()
                 .as_ref()
@@ -72,7 +71,21 @@ impl SplitApp {
                     Screen::List => self.update_in_list(event),
                     Screen::SaveLocationInput => self.update_in_save_location(event),
                 },
-                Event::Tick => {}
+                Event::Effect(Effect::ReceivedPhrases(phrases)) => {
+                    for (index, phrase) in phrases.iter().enumerate() {
+                        let phrase_vec = phrase
+                            .split(' ')
+                            .map(ToString::to_string)
+                            .collect::<Vec<String>>();
+                        self.phrases[index] = phrase_vec
+                    }
+                }
+                Event::Effect(Effect::ReceivedErrorMessage(msg)) => self.message = Some(msg),
+                Event::Tick => {
+                    if self.message.is_some() {
+                        self.message = None;
+                    }
+                }
             }
 
             if self.should_quit {
@@ -153,6 +166,7 @@ impl SplitApp {
     fn update_in_list(&mut self, key_event: KeyEvent) {
         match key_event.code {
             KeyCode::Char('i') => {
+                self.phrases = empty_phrases();
                 self.mnemonic.unselect();
                 self.screen = Screen::WordInput(InputMode::Editing)
             }
@@ -162,6 +176,20 @@ impl SplitApp {
             }
             KeyCode::Up if key_event.modifiers.contains(KeyModifiers::ALT) => {
                 self.mnemonic.move_up();
+            }
+
+            KeyCode::Enter if self.mnemonic.len() == 24 => {
+                let mnemonic_code = self.mnemonic.items.join(" ");
+                match splitmonic::get_split_phrases(mnemonic_code) {
+                    Ok(phrases) => self
+                        .tx
+                        .send(Event::Effect(Effect::ReceivedPhrases(phrases)))
+                        .expect("should always send"),
+                    Err(err) => self
+                        .tx
+                        .send(Event::Effect(Effect::ReceivedErrorMessage(err.to_string())))
+                        .expect("should always send"),
+                }
             }
 
             KeyCode::Up => {
@@ -201,4 +229,14 @@ impl SplitApp {
             self.screen = Screen::List
         }
     }
+}
+
+fn empty_phrases() -> [Vec<String>; 5] {
+    [
+        Vec::with_capacity(28),
+        Vec::with_capacity(28),
+        Vec::with_capacity(28),
+        Vec::with_capacity(28),
+        Vec::with_capacity(28),
+    ]
 }

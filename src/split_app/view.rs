@@ -32,6 +32,7 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
                 Constraint::Length(input_box_size),
                 Constraint::Min(2),
                 Constraint::Length(10),
+                Constraint::Length(5),
             ]
             .as_ref(),
         )
@@ -73,7 +74,9 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
 
     render_phrases_blocks(app, frame, &main_sections);
 
-    frame.render_widget(save_area(&app), chunks[3])
+    frame.render_widget(save_area(&app), chunks[3]);
+
+    frame.render_widget(errors_area(&app), chunks[4])
 }
 
 fn help_message_block(app: &SplitApp) -> Paragraph {
@@ -262,6 +265,7 @@ fn render_phrases_blocks(app: &mut SplitApp, frame: &mut Frame<Backend>, chunks:
 
     let block = Block::default()
         .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray))
         .title(Span::styled("Phrases", Style::default()));
 
     frame.render_widget(block, chunks[1]);
@@ -278,5 +282,27 @@ fn save_area(app: &SplitApp) -> Paragraph {
             Screen::WordInput(InputMode::Editing) => Style::default().fg(Color::Yellow),
             _ => Style::default(),
         })
-        .block(Block::default().borders(Borders::ALL).title("Save"))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Save")
+                .border_style(Style::default().fg(Color::DarkGray)),
+        )
+}
+
+fn errors_area(app: &SplitApp) -> Paragraph {
+    let style = if app.message.is_some() {
+        Style::default().fg(Color::Red)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    Paragraph::new(app.message.as_ref().map(AsRef::as_ref).unwrap_or(""))
+        .style(style)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Errors")
+                .border_style(style),
+        )
 }

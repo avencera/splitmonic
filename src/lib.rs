@@ -111,7 +111,7 @@ mod split {
     use zeroize::Zeroize;
 
     pub(crate) fn get_split_shares(mut mnemonic_code: String) -> Result<[Vec<u8>; 5], Error> {
-        let mut mnemonic = Mnemonic::parse(&mnemonic_code).unwrap();
+        let mut mnemonic = Mnemonic::parse(&mnemonic_code)?;
         mnemonic_code.zeroize();
 
         let mut entropy = mnemonic.to_entropy();
