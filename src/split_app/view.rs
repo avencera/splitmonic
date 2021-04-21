@@ -76,7 +76,7 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
 
     frame.render_widget(save_area(&app), chunks[3]);
 
-    frame.render_widget(errors_area(&app), chunks[4])
+    frame.render_widget(messages_area(&app), chunks[4])
 }
 
 fn help_message_block(app: &SplitApp) -> Paragraph {
@@ -291,19 +291,43 @@ fn save_area(app: &SplitApp) -> Paragraph {
         )
 }
 
-fn errors_area(app: &SplitApp) -> Paragraph {
-    let style = if app.message.is_some() {
-        Style::default().fg(Color::Red)
-    } else {
-        Style::default().fg(Color::DarkGray)
-    };
+fn messages_area(app: &SplitApp) -> Paragraph {
+    use crate::split_app::Message;
 
-    Paragraph::new(app.message.as_ref().map(AsRef::as_ref).unwrap_or(""))
-        .style(style)
-        .block(
+    let dark_gray = Style::default().fg(Color::DarkGray);
+    let gray = Style::default().fg(Color::Gray);
+    let light_red = Style::default().fg(Color::LightRed);
+    let red = Style::default().fg(Color::Red);
+    let green = Style::default().fg(Color::Green);
+    let light_green = Style::default().fg(Color::LightGreen);
+
+    match &app.message {
+        Message::None => Paragraph::new("").style(dark_gray).block(
             Block::default()
                 .borders(Borders::ALL)
-                .title("Errors")
-                .border_style(style),
-        )
+                .title("Messages")
+                .border_style(dark_gray),
+        ),
+
+        Message::Error(error) => Paragraph::new(error.to_string()).style(red).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Error")
+                .border_style(light_red.add_modifier(Modifier::BOLD)),
+        ),
+
+        Message::Success(string) => Paragraph::new(string.as_str()).style(green).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Success")
+                .border_style(light_green.add_modifier(Modifier::BOLD)),
+        ),
+
+        Message::Debug(string) => Paragraph::new(string.as_str()).style(gray).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Debug")
+                .border_style(dark_gray),
+        ),
+    }
 }

@@ -24,11 +24,19 @@ pub enum Screen {
     SaveLocationInput,
 }
 
+#[derive(PartialEq)]
+pub enum Message {
+    None,
+    Error(splitmonic::Error),
+    Debug(String),
+    Success(String),
+}
+
 pub struct SplitApp {
     tx: Sender<Event>,
     rx: Receiver<Event>,
 
-    pub message: Option<String>,
+    pub message: Message,
 
     pub autocomplete: &'static str,
     pub input: String,
@@ -46,7 +54,7 @@ impl SplitApp {
         Self {
             tx,
             rx,
-            message: None,
+            message: Message::None,
             autocomplete: English::get_word(0).unwrap(),
             input: String::new(),
             screen: Screen::WordInput(InputMode::Normal),
@@ -86,10 +94,10 @@ impl SplitApp {
                         self.phrases[index] = phrase_vec
                     }
                 }
-                Event::Effect(Effect::ReceivedErrorMessage(msg)) => self.message = Some(msg),
+                Event::Effect(Effect::ReceivedMessage(msg)) => self.message = msg,
                 Event::Tick => {
-                    if self.message.is_some() {
-                        self.message = None;
+                    if self.message != Message::None {
+                        self.message = Message::None;
                     }
                 }
             }
@@ -197,9 +205,11 @@ impl SplitApp {
                         .tx
                         .send(Event::Effect(Effect::ReceivedPhrases(phrases)))
                         .expect("should always send"),
-                    Err(err) => self
+                    Err(error) => self
                         .tx
-                        .send(Event::Effect(Effect::ReceivedErrorMessage(err.to_string())))
+                        .send(Event::Effect(Effect::ReceivedMessage(Message::Error(
+                            error,
+                        ))))
                         .expect("should always send"),
                 }
             }
@@ -228,6 +238,11 @@ impl SplitApp {
     }
 
     fn add_word_to_mnemonic(&mut self, word: String, place: Option<usize>) {
+        // if the word is not in set of BIP39 words return early
+        if !English::contains_word(&word) {
+            return;
+        }
+
         match (place, self.mnemonic.len()) {
             (None, 24) => {
                 self.mnemonic.pop();

@@ -6,6 +6,7 @@ use crossterm::{
     event::{self, Event as CEvent, KeyEvent},
     execute, terminal,
 };
+use split_app::Message;
 use std::{
     error::Error,
     io::{self, Stdout},
@@ -17,7 +18,7 @@ use tui::{backend::CrosstermBackend, Terminal};
 use crate::split_app::SplitApp;
 
 pub enum Effect {
-    ReceivedErrorMessage(String),
+    ReceivedMessage(Message),
     ReceivedPhrases(Vec<String>),
 }
 
@@ -43,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (tx, rx) = unbounded();
     let mut split_app = SplitApp::new(tx.clone(), rx);
 
-    let tick_rate = Duration::from_secs(10);
+    let tick_rate = Duration::from_secs(5);
     thread::spawn(move || {
         let mut last_tick = Instant::now();
         loop {
