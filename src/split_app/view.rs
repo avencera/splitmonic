@@ -4,7 +4,7 @@ use crate::{
 };
 
 use tui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Span, Spans, Text},
     widgets::{Block, Borders, List, ListItem, Paragraph},
@@ -28,9 +28,10 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
         .margin(2)
         .constraints(
             [
-                Constraint::Min(help_box_size + 1),
+                Constraint::Length(help_box_size + 1),
                 Constraint::Length(input_box_size),
                 Constraint::Min(2),
+                Constraint::Length(10),
             ]
             .as_ref(),
         )
@@ -61,9 +62,18 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
         }
     }
 
+    let main_sections = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(33), Constraint::Percentage(67)].as_ref())
+        .split(chunks[2]);
+
     // We can now render the item list
     let mnemonic_block = mnemonic_block(&app);
-    frame.render_stateful_widget(mnemonic_block, chunks[2], &mut app.mnemonic.state);
+    frame.render_stateful_widget(mnemonic_block, main_sections[0], &mut app.mnemonic.state);
+
+    render_phrases_blocks(app, frame, &main_sections);
+
+    frame.render_widget(save_area(&app), chunks[3])
 }
 
 fn help_message_block(app: &SplitApp) -> Paragraph {
@@ -212,4 +222,61 @@ fn mnemonic_block<'a, 'b>(app: &'a SplitApp) -> List<'b> {
                 .fg(Color::White),
         )
         .highlight_symbol("> ")
+}
+
+fn phrase_block<'a, 'b>(phrases: &[String], title: String) -> List<'b> {
+    let messages: Vec<ListItem> = phrases
+        .iter()
+        .enumerate()
+        .map(|(i, m)| {
+            let content = vec![Spans::from(Span::raw(format!("{}: {}", i + 1, m)))];
+            ListItem::new(content)
+        })
+        .collect();
+
+    // Create a List from all list items and highlight the currently selected one
+    List::new(messages).style(Style::default()).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(title)
+            .border_style(Style::default().fg(Color::DarkGray)),
+    )
+}
+
+fn render_phrases_blocks(app: &mut SplitApp, frame: &mut Frame<Backend>, chunks: &[Rect]) {
+    let phrases_sections = Layout::default()
+        .direction(Direction::Horizontal)
+        .horizontal_margin(1)
+        .vertical_margin(1)
+        .constraints(
+            [
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+                Constraint::Percentage(20),
+            ]
+            .as_ref(),
+        )
+        .split(chunks[1]);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(Span::styled("Phrases", Style::default()));
+
+    frame.render_widget(block, chunks[1]);
+
+    for (index, phrases) in app.phrases.iter().enumerate() {
+        let mblock = phrase_block(phrases, format!("{} of 5", index + 1));
+        frame.render_widget(mblock, phrases_sections[index])
+    }
+}
+
+fn save_area(app: &SplitApp) -> Paragraph {
+    Paragraph::new("")
+        .style(match app.screen {
+            Screen::WordInput(InputMode::Editing) => Style::default().fg(Color::Yellow),
+            _ => Style::default(),
+        })
+        .block(Block::default().borders(Borders::ALL).title("Save"))
 }

@@ -32,6 +32,8 @@ pub struct SplitApp {
     pub mnemonic: StatefulList<String>,
     pub should_quit: bool,
 
+    pub phrases: [Vec<String>; 5],
+
     pub save_location: String,
 }
 
@@ -43,6 +45,13 @@ impl SplitApp {
             input: String::new(),
             screen: Screen::WordInput(InputMode::Normal),
             mnemonic: StatefulList::new(),
+            phrases: [
+                Vec::with_capacity(28),
+                Vec::with_capacity(28),
+                Vec::with_capacity(28),
+                Vec::with_capacity(28),
+                Vec::with_capacity(28),
+            ],
             should_quit: false,
             save_location: dirs::home_dir()
                 .as_ref()
