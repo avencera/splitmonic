@@ -30,9 +30,9 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
             [
                 Constraint::Length(help_box_size + 1),
                 Constraint::Length(input_box_size),
-                Constraint::Min(2),
+                Constraint::Min(10),
                 Constraint::Length(10),
-                Constraint::Length(5),
+                Constraint::Length(3),
             ]
             .as_ref(),
         )

@@ -1,7 +1,6 @@
 mod view;
 
 use crate::{ui::util::stateful_list::StatefulList, Effect, Event, Term};
-
 use crossbeam_channel::{Receiver, Sender};
 use splitmonic::wordlist::english::English;
 use splitmonic::wordlist::Wordlist;
@@ -259,6 +258,8 @@ impl SplitApp {
                 self.mnemonic.items[index] = word;
                 if len == 24 {
                     self.screen = Screen::List
+                } else {
+                    self.screen = Screen::WordInput(InputMode::Inserting)
                 }
             }
         }
