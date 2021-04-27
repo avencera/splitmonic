@@ -9,7 +9,9 @@ use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute, terminal,
 };
-use std::{borrow::Cow, error::Error};
+
+use maplit::hashmap;
+use std::{borrow::Cow, collections::HashMap, error::Error};
 
 pub enum InputMode {
     Normal,
@@ -44,6 +46,7 @@ pub struct SplitApp {
     pub should_quit: bool,
 
     pub phrases: [Vec<String>; 5],
+    pub selected_phrases: HashMap<usize, bool>,
 
     pub save_location: String,
 }
@@ -59,6 +62,7 @@ impl SplitApp {
             screen: Screen::WordInput(InputMode::Normal),
             mnemonic: StatefulList::new(),
             phrases: empty_phrases(),
+            selected_phrases: hashmap! {0 => false, 1 => false, 2 => false, 3 => false, 4 => false},
             should_quit: false,
             save_location: dirs::home_dir()
                 .as_ref()
@@ -85,6 +89,8 @@ impl SplitApp {
                     Screen::SaveLocationInput => self.update_in_save_location(event),
                 },
                 Event::Effect(Effect::ReceivedPhrases(phrases)) => {
+                    self.select_all_phrases();
+
                     for (index, phrase) in phrases.iter().enumerate() {
                         let phrase_vec = phrase
                             .split(' ')
@@ -263,6 +269,10 @@ impl SplitApp {
                 }
             }
         }
+    }
+
+    fn select_all_phrases(&mut self) {
+        self.selected_phrases = hashmap! {0 => true, 1 => true, 2 => true, 3 => true, 4 => true}
     }
 }
 

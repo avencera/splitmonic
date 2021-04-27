@@ -228,7 +228,15 @@ fn mnemonic_block<'a, 'b>(app: &'a SplitApp) -> List<'b> {
         .highlight_symbol("> ")
 }
 
-fn phrase_block<'a, 'b>(phrases: &[String], title: String) -> List<'b> {
+fn phrase_block<'a, 'b>(app: &SplitApp, phrases: &[String], index: usize) -> List<'b> {
+    let title = format!("{} of 5", index + 1);
+
+    let border = if *app.selected_phrases.get(&index).unwrap_or(&false) {
+        Style::default().fg(Color::Green)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
     let messages: Vec<ListItem> = phrases
         .iter()
         .enumerate()
@@ -243,7 +251,7 @@ fn phrase_block<'a, 'b>(phrases: &[String], title: String) -> List<'b> {
         Block::default()
             .borders(Borders::ALL)
             .title(title)
-            .border_style(Style::default().fg(Color::DarkGray)),
+            .border_style(border),
     )
 }
 
@@ -272,7 +280,7 @@ fn render_phrases_blocks(app: &mut SplitApp, frame: &mut Frame<Backend>, chunks:
     frame.render_widget(block, chunks[1]);
 
     for (index, phrases) in app.phrases.iter().enumerate() {
-        let mblock = phrase_block(phrases, format!("{} of 5", index + 1));
+        let mblock = phrase_block(app, phrases, index);
         frame.render_widget(mblock, phrases_sections[index])
     }
 }

@@ -26,3 +26,4 @@ crossbeam-channel = "0.5.1"
 unicode-width = "0.1"
 
 dirs = "3.0"
+maplit = "1.0"
