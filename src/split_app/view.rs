@@ -1,5 +1,6 @@
 use crate::{
     split_app::{InputMode, Screen, SplitApp},
+    ui::util::stateful_list::StatefulList,
     Backend,
 };
 
@@ -51,6 +52,7 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
     match app.screen {
         Screen::List => {}
         Screen::SaveLocationInput => {}
+        Screen::PhraseList(_) => {}
         Screen::WordInput(InputMode::Normal) => {}
         Screen::WordInput(InputMode::Inserting) | Screen::WordInput(InputMode::Editing(_)) => {
             // Make the cursor visible and ask tui-rs to put it at the specified coordinates after rendering
@@ -90,7 +92,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
                 Span::raw("to start editing, "),
                 Span::styled("↓ ", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw("or "),
-                Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(" <TAB> ", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw("to access the word list"),
             ])),
             Style::default().add_modifier(Modifier::RAPID_BLINK),
@@ -151,6 +153,21 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
                 texts
             },
             Style::default(),
+        ),
+
+        Screen::PhraseList(_) => (
+            Text::from(Spans::from(vec![
+                Span::raw("Press "),
+                Span::styled("→ ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to go to the next list, "),
+                Span::styled("← ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to go to the previous list, "),
+                Span::styled("<ENTER> ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to toggle selecting the phrases for saving"),
+                Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw("to select a location to save to"),
+            ])),
+            Style::default().add_modifier(Modifier::RAPID_BLINK),
         ),
 
         Screen::SaveLocationInput => (
@@ -228,16 +245,27 @@ fn mnemonic_block<'a, 'b>(app: &'a SplitApp) -> List<'b> {
         .highlight_symbol("> ")
 }
 
-fn phrase_block<'a, 'b>(app: &SplitApp, phrases: &[String], index: usize) -> List<'b> {
+fn phrase_block<'a, 'b>(
+    selected: bool,
+    screen: &Screen,
+    phrases: &StatefulList<String>,
+    index: usize,
+) -> List<'b> {
     let title = format!("{} of 5", index + 1);
 
-    let border = if *app.selected_phrases.get(&index).unwrap_or(&false) {
+    let border = if selected {
         Style::default().fg(Color::Green)
     } else {
         Style::default().fg(Color::DarkGray)
     };
 
+    let border = match screen {
+        Screen::PhraseList(current) if current == &index => border.add_modifier(Modifier::BOLD),
+        _ => border,
+    };
+
     let messages: Vec<ListItem> = phrases
+        .items
         .iter()
         .enumerate()
         .map(|(i, m)| {
@@ -247,12 +275,20 @@ fn phrase_block<'a, 'b>(app: &SplitApp, phrases: &[String], index: usize) -> Lis
         .collect();
 
     // Create a List from all list items and highlight the currently selected one
-    List::new(messages).style(Style::default()).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(title)
-            .border_style(border),
-    )
+    List::new(messages)
+        .style(Style::default())
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .border_style(border),
+        )
+        .highlight_style(
+            Style::default()
+                .add_modifier(Modifier::BOLD)
+                .fg(Color::White),
+        )
+        .highlight_symbol("> ")
 }
 
 fn render_phrases_blocks(app: &mut SplitApp, frame: &mut Frame<Backend>, chunks: &[Rect]) {
@@ -279,9 +315,14 @@ fn render_phrases_blocks(app: &mut SplitApp, frame: &mut Frame<Backend>, chunks:
 
     frame.render_widget(block, chunks[1]);
 
-    for (index, phrases) in app.phrases.iter().enumerate() {
-        let mblock = phrase_block(app, phrases, index);
-        frame.render_widget(mblock, phrases_sections[index])
+    for (index, phrases) in app.phrases.iter_mut().enumerate() {
+        let mblock = phrase_block(
+            *app.selected_phrases.get(&index).unwrap_or(&false),
+            &app.screen,
+            &phrases,
+            index,
+        );
+        frame.render_stateful_widget(mblock, phrases_sections[index], &mut phrases.state)
     }
 }
 

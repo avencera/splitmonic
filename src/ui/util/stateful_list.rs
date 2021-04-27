@@ -7,9 +7,23 @@ pub struct StatefulList<T> {
 
 impl<T> StatefulList<T> {
     pub fn new() -> StatefulList<T> {
-        StatefulList {
+        Self {
             state: ListState::default(),
             items: Vec::new(),
+        }
+    }
+
+    pub fn with_items(items: Vec<T>) -> StatefulList<T> {
+        Self {
+            state: ListState::default(),
+            items,
+        }
+    }
+
+    pub fn with_capacity(capacity: usize) -> StatefulList<T> {
+        Self {
+            state: ListState::default(),
+            items: Vec::with_capacity(capacity),
         }
     }
 

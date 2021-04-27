@@ -22,6 +22,7 @@ pub enum InputMode {
 pub enum Screen {
     WordInput(InputMode),
     List,
+    PhraseList(usize),
     SaveLocationInput,
 }
 
@@ -45,7 +46,7 @@ pub struct SplitApp {
     pub mnemonic: StatefulList<String>,
     pub should_quit: bool,
 
-    pub phrases: [Vec<String>; 5],
+    pub phrases: [StatefulList<String>; 5],
     pub selected_phrases: HashMap<usize, bool>,
 
     pub save_location: String,
@@ -87,16 +88,20 @@ impl SplitApp {
                     }
                     Screen::List => self.update_in_list(event),
                     Screen::SaveLocationInput => self.update_in_save_location(event),
+                    Screen::PhraseList(phrase_list_index) => {
+                        self.update_in_phrase_list(event, phrase_list_index)
+                    }
                 },
                 Event::Effect(Effect::ReceivedPhrases(phrases)) => {
                     self.select_all_phrases();
+                    self.select_phrase_list(None, 0);
 
                     for (index, phrase) in phrases.iter().enumerate() {
                         let phrase_vec = phrase
                             .split(' ')
                             .map(ToString::to_string)
                             .collect::<Vec<String>>();
-                        self.phrases[index] = phrase_vec
+                        self.phrases[index] = StatefulList::with_items(phrase_vec)
                     }
                 }
                 Event::Effect(Effect::ReceivedMessage(msg)) => self.message = msg,
@@ -203,6 +208,8 @@ impl SplitApp {
                 self.mnemonic.move_up();
             }
 
+            KeyCode::Right => self.screen = Screen::PhraseList(0),
+
             KeyCode::Enter if self.mnemonic.len() == 24 => {
                 let mnemonic_code = self.mnemonic.items.join(" ");
                 match splitmonic::get_split_phrases(mnemonic_code) {
@@ -242,6 +249,45 @@ impl SplitApp {
         }
     }
 
+    fn update_in_phrase_list(&mut self, key_event: KeyEvent, phrase_list_index: usize) {
+        match key_event.code {
+            KeyCode::Up => self.phrases[phrase_list_index].previous(),
+            KeyCode::Down => self.phrases[phrase_list_index].next(),
+
+            KeyCode::Left if phrase_list_index == 0 => self.select_phrase_list(Some(0), 4),
+            KeyCode::Left => {
+                self.select_phrase_list(Some(phrase_list_index), phrase_list_index - 1)
+            }
+            KeyCode::Right if phrase_list_index == 4 => self.select_phrase_list(Some(4), 0),
+
+            KeyCode::Right => {
+                self.select_phrase_list(Some(phrase_list_index), phrase_list_index + 1)
+            }
+
+            KeyCode::Enter => {
+                let current_selection = *self
+                    .selected_phrases
+                    .get(&phrase_list_index)
+                    .unwrap_or(&false);
+
+                self.selected_phrases
+                    .insert(phrase_list_index, !current_selection);
+            }
+
+            KeyCode::Tab => self.screen = Screen::SaveLocationInput,
+            _ => {}
+        }
+    }
+
+    fn select_phrase_list(&mut self, current: Option<usize>, phrase_list_index: usize) {
+        if let Some(current) = current {
+            self.phrases[current].unselect()
+        };
+
+        self.screen = Screen::PhraseList(phrase_list_index);
+        self.phrases[phrase_list_index].select();
+    }
+
     fn add_word_to_mnemonic(&mut self, word: String, place: Option<usize>) {
         // if the word is not in set of BIP39 words return early
         if !English::contains_word(&word) {
@@ -276,12 +322,12 @@ impl SplitApp {
     }
 }
 
-fn empty_phrases() -> [Vec<String>; 5] {
+fn empty_phrases() -> [StatefulList<String>; 5] {
     [
-        Vec::with_capacity(28),
-        Vec::with_capacity(28),
-        Vec::with_capacity(28),
-        Vec::with_capacity(28),
-        Vec::with_capacity(28),
+        StatefulList::with_capacity(28),
+        StatefulList::with_capacity(28),
+        StatefulList::with_capacity(28),
+        StatefulList::with_capacity(28),
+        StatefulList::with_capacity(28),
     ]
 }
