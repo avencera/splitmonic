@@ -29,12 +29,12 @@ pub trait Wordlist {
     const WORDLIST: Lazy<WordlistData>;
 
     /// Returns the word of a given index from the word list.
-    fn get_word(index: usize) -> Result<String, WordlistError> {
+    fn get_word(index: usize) -> Result<&'static str, WordlistError> {
         Self::WORDLIST
             .words
             .get(&index)
-            .ok_or_else(|| WordlistError::InvalidIndex(index))
-            .map(|word| word.to_string())
+            .ok_or(WordlistError::InvalidIndex(index))
+            .map(|word| word.clone())
     }
 
     /// Returns the index of a given word from the word list.
@@ -46,8 +46,41 @@ pub trait Wordlist {
             .map(|usize| *usize)
     }
 
+    fn contains_word(word: &str) -> bool {
+        Self::get_index(word).is_ok()
+    }
+
     /// Returns the word list as a string.
     fn get_all() -> Vec<&'static str> {
-        Self::WORDLIST.words.values().cloned().collect()
+        let mut words: Vec<&'static str> = Self::WORDLIST.words.values().cloned().collect();
+        words.sort_unstable();
+        words
+    }
+
+    fn starting_with(start: &str) -> Vec<&'static str> {
+        let mut words = Self::WORDLIST
+            .words
+            .values()
+            .into_iter()
+            .filter(|word| word.starts_with(start))
+            .cloned()
+            .collect::<Vec<&'static str>>();
+
+        words.sort_unstable();
+        words
+    }
+
+    fn next_starting_with(start: &str, current_word: &str) -> Option<&'static str> {
+        let words = Self::starting_with(start);
+        let position = words.iter().position(|word| word == &current_word)?;
+
+        // if the last word cycle back to the first word in the list
+        let position = if position == (words.len() - 1) {
+            0
+        } else {
+            position
+        };
+
+        Some(*words.get(position + 1)?)
     }
 }

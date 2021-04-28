@@ -31,8 +31,8 @@ mod tests {
 
     #[test]
     fn test_get() {
-        assert_eq!(English::get_word(3), Ok("about".to_string()));
-        assert_eq!(English::get_word(2044), Ok("zebra".to_string()));
+        assert_eq!(English::get_word(3), Ok("about"));
+        assert_eq!(English::get_word(2044), Ok("zebra"));
         assert_eq!(
             English::get_word(2048),
             Err(WordlistError::InvalidIndex(2048))

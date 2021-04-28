@@ -18,5 +18,16 @@ rand = "0.8"
 thiserror = "1.0"
 zeroize = "1.2"
 
-# bin
-structopt = "0.3"
+# cli
+color-eyre = "0.5"
+eyre = "0.6"
+
+# tui
+crossterm = "0.19"
+tui = {version = "0.14", default-features = false, features = ["crossterm"]}
+
+crossbeam-channel = "0.5.1"
+unicode-width = "0.1"
+
+dirs = "3.0"
+maplit = "1.0"
