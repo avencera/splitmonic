@@ -274,6 +274,20 @@ impl SplitApp {
                     .insert(phrase_list_index, !current_selection);
             }
 
+            KeyCode::Char('a') => {
+                let all_selected = self
+                    .selected_phrases
+                    .values()
+                    .filter(|x| x == &&true)
+                    .collect::<Vec<&bool>>();
+
+                if all_selected.len() == 5 {
+                    self.unselect_all_phrases()
+                } else {
+                    self.select_all_phrases()
+                };
+            }
+
             KeyCode::Tab => self.screen = Screen::SaveLocationInput,
             _ => {}
         }
@@ -319,6 +333,11 @@ impl SplitApp {
 
     fn select_all_phrases(&mut self) {
         self.selected_phrases = hashmap! {0 => true, 1 => true, 2 => true, 3 => true, 4 => true}
+    }
+
+    fn unselect_all_phrases(&mut self) {
+        self.selected_phrases =
+            hashmap! {0 => false, 1 => false, 2 => false, 3 => false, 4 => false}
     }
 }
 

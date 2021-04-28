@@ -16,6 +16,7 @@ use unicode_width::UnicodeWidthStr;
 pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
     let help_box_size = match &app.screen {
         Screen::List => 4,
+        Screen::PhraseList(_) => 4,
         _ => 1,
     };
 
@@ -92,7 +93,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
                 Span::raw("to start editing, "),
                 Span::styled("↓ ", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw("or "),
-                Span::styled(" <TAB> ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw("to access the word list"),
             ])),
             Style::default().add_modifier(Modifier::RAPID_BLINK),
@@ -156,18 +157,39 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
         ),
 
         Screen::PhraseList(_) => (
-            Text::from(Spans::from(vec![
-                Span::raw("Press "),
-                Span::styled("→ ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to go to the next list, "),
-                Span::styled("← ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to go to the previous list, "),
-                Span::styled("<ENTER> ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to toggle selecting the phrases for saving"),
-                Span::styled("<TAB> ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to select a location to save to"),
-            ])),
-            Style::default().add_modifier(Modifier::RAPID_BLINK),
+            {
+                let mut texts = Text::from(Spans::from(vec![
+                    Span::raw("Press "),
+                    Span::styled("→ ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw("to go to the next list, "),
+                    Span::styled("← ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw("to go to the previous list, "),
+                ]));
+
+                texts.extend(Text::from(Spans::from(vec![
+                    Span::styled(
+                        "        <ENTER> ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw("to toggle selecting the phrases for saving"),
+                ])));
+
+                texts.extend(Text::from(Spans::from(vec![
+                    Span::styled("        a ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw("to select/deselect all"),
+                ])));
+
+                texts.extend(Text::from(Spans::from(vec![
+                    Span::styled(
+                        "        <TAB> ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw("to select a location to save to"),
+                ])));
+
+                texts
+            },
+            Style::default(),
         ),
 
         Screen::SaveLocationInput => (
