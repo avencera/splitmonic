@@ -20,9 +20,7 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
         _ => 1,
     };
 
-    let input_box_size = match &app.screen {
-        _ => 3,
-    };
+    let input_box_size = 3;
 
     // setup layout
     let chunks = Layout::default()
@@ -33,7 +31,7 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
                 Constraint::Length(help_box_size + 1),
                 Constraint::Length(input_box_size),
                 Constraint::Min(10),
-                Constraint::Length(10),
+                Constraint::Length(3),
                 Constraint::Length(3),
             ]
             .as_ref(),
@@ -52,7 +50,6 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
     // cursor handling
     match app.screen {
         Screen::List => {}
-        Screen::SaveLocationInput => {}
         Screen::PhraseList(_) => {}
         Screen::WordInput(InputMode::Normal) => {}
         Screen::WordInput(InputMode::Inserting) | Screen::WordInput(InputMode::Editing(_)) => {
@@ -64,6 +61,10 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
                 chunks[1].y + 1,
             )
         }
+        Screen::SaveLocationInput => frame.set_cursor(
+            chunks[3].x + app.save_location.width() as u16 + 1,
+            chunks[3].y + 1,
+        ),
     }
 
     let main_sections = Layout::default()
@@ -196,7 +197,9 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
             Text::from(Spans::from(vec![
                 Span::raw("Press "),
                 Span::styled("<ENTER> ", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw("to generate your five (5) split phrases"),
+                Span::raw("to save "),
+                Span::raw(app.number_of_selected_phrases().to_string()),
+                Span::raw(" phrases to the location below"),
             ])),
             Style::default(),
         ),
@@ -267,12 +270,12 @@ fn mnemonic_block<'a, 'b>(app: &'a SplitApp) -> List<'b> {
         .highlight_symbol("> ")
 }
 
-fn phrase_block<'a, 'b>(
+fn phrase_block<'a>(
     selected: bool,
     screen: &Screen,
     phrases: &StatefulList<String>,
     index: usize,
-) -> List<'b> {
+) -> List<'a> {
     let title = format!("{} of 5", index + 1);
 
     let border = if selected {
@@ -349,16 +352,20 @@ fn render_phrases_blocks(app: &mut SplitApp, frame: &mut Frame<Backend>, chunks:
 }
 
 fn save_area(app: &SplitApp) -> Paragraph {
-    Paragraph::new("")
-        .style(match app.screen {
-            Screen::WordInput(InputMode::Inserting) => Style::default().fg(Color::Yellow),
-            _ => Style::default(),
-        })
+    let style = match app.screen {
+        Screen::SaveLocationInput => Style::default().fg(Color::Yellow),
+        _ => Style::default().fg(Color::DarkGray),
+    };
+
+    let input_text = vec![Spans::from(vec![Span::raw(&app.save_location)])];
+
+    Paragraph::new(input_text)
+        .style(style.add_modifier(Modifier::RAPID_BLINK))
         .block(
             Block::default()
                 .borders(Borders::ALL)
                 .title("Save")
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(style),
         )
 }
 

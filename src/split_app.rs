@@ -1,7 +1,8 @@
 mod view;
 
-use crate::{ui::util::stateful_list::StatefulList, Effect, Event, Term};
+use crate::{ui::util::stateful_list::StatefulList, Term};
 use crossbeam_channel::{Receiver, Sender};
+use eyre::Result;
 use splitmonic::wordlist::english::English;
 use splitmonic::wordlist::Wordlist;
 
@@ -9,9 +10,42 @@ use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute, terminal,
 };
-
 use maplit::hashmap;
-use std::{borrow::Cow, collections::HashMap, error::Error};
+use std::{borrow::Cow, collections::HashMap, fs::File, io::Write, path::PathBuf};
+
+pub enum Effect {
+    ReceivedMessage(Message),
+    ReceivedPhrases(Vec<String>),
+}
+
+impl Effect {
+    fn error<T: Into<Error>>(error: T) -> Self {
+        Self::ReceivedMessage(Message::error(error.into()))
+    }
+
+    fn success<T: Into<String>>(message: T) -> Self {
+        Self::ReceivedMessage(Message::success(message.into()))
+    }
+
+    fn phrases(phrases: Vec<String>) -> Self {
+        Self::ReceivedPhrases(phrases)
+    }
+}
+
+pub enum Event {
+    Input(KeyEvent),
+    Effect(Effect),
+    Tick,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error(transparent)]
+    Lib(#[from] splitmonic::Error),
+
+    #[error(transparent)]
+    Other(#[from] eyre::Report),
+}
 
 pub enum InputMode {
     Normal,
@@ -26,12 +60,22 @@ pub enum Screen {
     SaveLocationInput,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug)]
 pub enum Message {
     None,
-    Error(splitmonic::Error),
     Debug(String),
+    Error(Error),
     Success(String),
+}
+
+impl Message {
+    fn success(message: String) -> Self {
+        Self::Success(message)
+    }
+
+    fn error(error: Error) -> Self {
+        Self::Error(error)
+    }
 }
 
 pub struct SplitApp {
@@ -42,14 +86,14 @@ pub struct SplitApp {
 
     pub autocomplete: &'static str,
     pub input: String,
+    pub save_location: String,
+
     pub screen: Screen,
     pub mnemonic: StatefulList<String>,
     pub should_quit: bool,
 
     pub phrases: [StatefulList<String>; 5],
     pub selected_phrases: HashMap<usize, bool>,
-
-    pub save_location: String,
 }
 
 impl SplitApp {
@@ -73,7 +117,7 @@ impl SplitApp {
         }
     }
 
-    pub fn start_event_loop(&mut self, mut terminal: Term) -> Result<(), Box<dyn Error>> {
+    pub fn start_event_loop(&mut self, mut terminal: Term) -> Result<()> {
         loop {
             terminal.draw(|f| view::draw(self, f))?;
 
@@ -106,9 +150,10 @@ impl SplitApp {
                 }
                 Event::Effect(Effect::ReceivedMessage(msg)) => self.message = msg,
                 Event::Tick => {
-                    if self.message != Message::None {
-                        self.message = Message::None;
-                    }
+                    match &self.message {
+                        Message::None => {}
+                        _any_other => self.message = Message::None,
+                    };
                 }
             }
 
@@ -215,13 +260,12 @@ impl SplitApp {
                 match splitmonic::get_split_phrases(mnemonic_code) {
                     Ok(phrases) => self
                         .tx
-                        .send(Event::Effect(Effect::ReceivedPhrases(phrases)))
+                        .send(Event::Effect(Effect::phrases(phrases)))
                         .expect("should always send"),
+
                     Err(error) => self
                         .tx
-                        .send(Event::Effect(Effect::ReceivedMessage(Message::Error(
-                            error,
-                        ))))
+                        .send(Event::Effect(Effect::error(error)))
                         .expect("should always send"),
                 }
             }
@@ -245,7 +289,26 @@ impl SplitApp {
 
     fn update_in_save_location(&mut self, key_event: KeyEvent) {
         match key_event.code {
-            _ => self.screen = Screen::List,
+            KeyCode::Up => self.select_phrase_list(None, 0),
+            KeyCode::Esc => self.screen = Screen::WordInput(InputMode::Normal),
+            KeyCode::Char(char) => self.save_location.push(char),
+            KeyCode::Backspace => {
+                self.save_location.pop();
+            }
+            KeyCode::Enter => match self.save_phrases() {
+                Ok(_) => self
+                    .tx
+                    .send(Event::Effect(Effect::success(
+                        "created file(s) successfully",
+                    )))
+                    .expect("should always send"),
+
+                Err(error) => self
+                    .tx
+                    .send(Event::Effect(Effect::error(error)))
+                    .expect("should always send"),
+            },
+            _ => {}
         }
     }
 
@@ -275,13 +338,7 @@ impl SplitApp {
             }
 
             KeyCode::Char('a') => {
-                let all_selected = self
-                    .selected_phrases
-                    .values()
-                    .filter(|x| x == &&true)
-                    .collect::<Vec<&bool>>();
-
-                if all_selected.len() == 5 {
+                if self.number_of_selected_phrases() == 5 {
                     self.unselect_all_phrases()
                 } else {
                     self.select_all_phrases()
@@ -331,6 +388,30 @@ impl SplitApp {
         }
     }
 
+    fn save_phrases(&self) -> Result<(), eyre::Error> {
+        let save_location = PathBuf::from(&self.save_location);
+        std::fs::create_dir_all(&save_location)?;
+
+        for (index, is_selected) in &self.selected_phrases {
+            if *is_selected {
+                let mut file = File::create(&format!("phrases_{}_of_5.txt", index + 1))?;
+
+                let text = self.phrases[*index]
+                    .items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, word)| format!("{}: {}", (index + 1), word))
+                    .collect::<Vec<String>>()
+                    .join("\n");
+
+                file.write_all(text.as_bytes())?;
+                file.flush()?;
+            }
+        }
+
+        Ok(())
+    }
+
     fn select_all_phrases(&mut self) {
         self.selected_phrases = hashmap! {0 => true, 1 => true, 2 => true, 3 => true, 4 => true}
     }
@@ -338,6 +419,18 @@ impl SplitApp {
     fn unselect_all_phrases(&mut self) {
         self.selected_phrases =
             hashmap! {0 => false, 1 => false, 2 => false, 3 => false, 4 => false}
+    }
+
+    fn number_of_selected_phrases(&self) -> usize {
+        let mut selected = 0;
+
+        for is_selected in self.selected_phrases.values() {
+            if *is_selected {
+                selected += 1
+            }
+        }
+
+        selected
     }
 }
 

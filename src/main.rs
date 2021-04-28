@@ -1,37 +1,25 @@
 mod split_app;
 mod ui;
 
+use crate::split_app::SplitApp;
 use crossbeam_channel::unbounded;
 use crossterm::{
-    event::{self, Event as CEvent, KeyEvent},
+    event::{self, Event as CEvent},
     execute, terminal,
 };
-use split_app::Message;
+use eyre::Result;
 use std::{
-    error::Error,
     io::{self, Stdout},
     thread,
     time::{Duration, Instant},
 };
 use tui::{backend::CrosstermBackend, Terminal};
 
-use crate::split_app::SplitApp;
-
-pub enum Effect {
-    ReceivedMessage(Message),
-    ReceivedPhrases(Vec<String>),
-}
-
-pub enum Event {
-    Input(KeyEvent),
-    Effect(Effect),
-    Tick,
-}
-
 pub type Backend = CrosstermBackend<Stdout>;
 pub type Term = Terminal<Backend>;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
+    color_eyre::install()?;
     let mut stdout = io::stdout();
 
     terminal::enable_raw_mode()?;
@@ -55,12 +43,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             if event::poll(timeout).unwrap() {
                 if let CEvent::Key(key) = event::read().unwrap() {
-                    tx.send(Event::Input(key)).unwrap();
+                    tx.send(split_app::Event::Input(key)).unwrap();
                 }
             }
 
             if last_tick.elapsed() >= tick_rate {
-                tx.send(Event::Tick).unwrap();
+                tx.send(split_app::Event::Tick).unwrap();
                 last_tick = Instant::now();
             }
         }
