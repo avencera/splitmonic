@@ -53,7 +53,7 @@ pub trait Wordlist {
     /// Returns the word list as a string.
     fn get_all() -> Vec<&'static str> {
         let mut words: Vec<&'static str> = Self::WORDLIST.words.values().cloned().collect();
-        words.sort();
+        words.sort_unstable();
         words
     }
 
@@ -66,7 +66,7 @@ pub trait Wordlist {
             .cloned()
             .collect::<Vec<&'static str>>();
 
-        words.sort();
+        words.sort_unstable();
         words
     }
 
@@ -81,6 +81,6 @@ pub trait Wordlist {
             position
         };
 
-        Some(words.get(position + 1)?.clone())
+        Some(*words.get(position + 1)?)
     }
 }

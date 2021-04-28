@@ -159,14 +159,14 @@ mod recover {
 
         for split_phrase in split_phrases {
             if set_id.is_empty() {
-                set_id = split_phrase[0..3].iter().cloned().collect()
+                set_id = split_phrase[0..3].to_vec()
             }
 
             if set_id[0..3] != split_phrase[0..3] {
                 return Err(Error::MismatchedSet);
             }
 
-            without_ids.push(split_phrase[3..].iter().cloned().collect())
+            without_ids.push(split_phrase[3..].to_vec())
         }
 
         Ok(without_ids)
