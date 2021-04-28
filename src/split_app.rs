@@ -394,7 +394,10 @@ impl SplitApp {
 
         for (index, is_selected) in &self.selected_phrases {
             if *is_selected {
-                let mut file = File::create(&format!("phrases_{}_of_5.txt", index + 1))?;
+                let mut path = PathBuf::from(&self.save_location);
+                path.push(&format!("phrases_{}_of_5.txt", index + 1));
+
+                let mut file = File::create(path)?;
 
                 let text = self.phrases[*index]
                     .items

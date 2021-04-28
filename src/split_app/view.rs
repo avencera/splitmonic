@@ -199,7 +199,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
                 Span::styled("<ENTER> ", Style::default().add_modifier(Modifier::BOLD)),
                 Span::raw("to save "),
                 Span::raw(app.number_of_selected_phrases().to_string()),
-                Span::raw(" phrases to the location below"),
+                Span::raw(" phrases to the folder below"),
             ])),
             Style::default(),
         ),
