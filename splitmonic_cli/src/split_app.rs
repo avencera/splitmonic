@@ -425,15 +425,10 @@ impl SplitApp {
     }
 
     fn number_of_selected_phrases(&self) -> usize {
-        let mut selected = 0;
-
-        for is_selected in self.selected_phrases.values() {
-            if *is_selected {
-                selected += 1
-            }
-        }
-
-        selected
+        self.selected_phrases
+            .values()
+            .filter(|is_selected| **is_selected)
+            .count()
     }
 }
 
