@@ -197,7 +197,13 @@ mod recover {
 fn split_phrases_into_words(split_phrases: &[String]) -> Vec<Vec<&str>> {
     split_phrases
         .iter()
-        .map(|phrase| phrase.split(' ').collect::<Vec<&str>>())
+        .map(|phrase| {
+            phrase
+                .trim()
+                .split(' ')
+                .filter(|phrase| !phrase.is_empty())
+                .collect::<Vec<&str>>()
+        })
         .collect()
 }
 
