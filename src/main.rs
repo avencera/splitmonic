@@ -47,20 +47,60 @@ enum Splitmonic {
         about = "Combine you're split phrases into your original mnemonic"
     )]
     Combine {
-        #[structopt(short, long, help = "use the interactive TUI")]
+        #[structopt(short, long, help = "use the interactive TUI", 
+        required_unless_one = &["all-split-phrases", "split-phrases-1"])]
         interactive: bool,
 
         #[structopt(
-            short,
+            short="s",
             long,
-            help = "3 of your 5 split phrases",
-            required_unless = "interactive",
+            help = "3 of 5 split phrases",
+            required_unless_one = &["split-phrases-1", "split-phrases-2", "split-phrases-3", "interactive"],
             conflicts_with = "interactive",
             use_delimiter = true,
-            require_delimiter = true,
-            min_values = 3
+            min_values = 3,
+            max_values = 3
         )]
-        split_phrases: Vec<String>,
+        all_split_phrases: Option<Vec<String>>,
+
+        #[structopt(
+            short = "1",
+            visible_alias = "sp1",
+            long,
+            help = "first split phrase",
+            requires_all = &["split-phrases-2", "split-phrases-3"],
+            conflicts_with = "interactive",
+            use_delimiter = true,
+            min_values = 28,
+            max_values = 28
+        )]
+        split_phrases_1: Option<Vec<String>>,
+
+        #[structopt(
+            short = "2",
+            visible_alias = "sp2",
+            long,
+            help = "second split phrase",
+            requires_all = &["split-phrases-1", "split-phrases-3"],
+            conflicts_with = "interactive",
+            use_delimiter = true,
+            min_values = 28,
+            max_values = 28
+        )]
+        split_phrases_2: Option<Vec<String>>,
+
+        #[structopt(
+            short = "3",
+            visible_alias = "sp3",
+            long,
+            requires_all = &["split-phrases-1", "split-phrases-2"],
+            help = "third split phrase",
+            conflicts_with = "interactive",
+            use_delimiter = true,
+            min_values = 28,
+            max_values = 28
+        )]
+        split_phrases_3: Option<Vec<String>>,
     },
 }
 
@@ -83,10 +123,67 @@ fn main() -> Result<()> {
             interactive: true, ..
         } => Ok(()),
 
+        splitmonic @ Splitmonic::Combine {
+            interactive: false, ..
+        } => {
+            let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic)?;
+
+            println!("\nSuccessfully recovered your mnemonic code:\n");
+            for (index, word) in mnemonic_code.split(' ').enumerate() {
+                println!("{}: {}", index + 1, word)
+            }
+
+            Ok(())
+        }
+
+        // any other combinations are impossible
+        _ => Err(eyre::eyre!("unreachable")),
+    }
+}
+
+fn get_mnemonic_code_from_combine_cli(splitmonic: Splitmonic) -> Result<String> {
+    match splitmonic {
         Splitmonic::Combine {
-            split_phrases: phrases,
+            all_split_phrases: Some(split_phrases),
             ..
-        } => Ok(()),
+        } => {
+            let split_phrases = split_phrases
+                .iter()
+                .map(|phrase| phrase.trim().to_string())
+                .collect();
+
+            Ok(splitmonic::recover_mnemonic_code(split_phrases)?)
+        }
+
+        Splitmonic::Combine {
+            split_phrases_1: Some(split_phrases_1),
+            split_phrases_2: Some(split_phrases_2),
+            split_phrases_3: Some(split_phrases_3),
+            ..
+        } => {
+            let split_phrases = vec![
+                split_phrases_1
+                    .iter()
+                    .map(|phrase| phrase.trim())
+                    .filter(|phrase| !phrase.is_empty())
+                    .collect::<Vec<&str>>()
+                    .join(" "),
+                split_phrases_2
+                    .iter()
+                    .map(|phrase| phrase.trim())
+                    .filter(|phrase| !phrase.is_empty())
+                    .collect::<Vec<&str>>()
+                    .join(" "),
+                split_phrases_3
+                    .iter()
+                    .map(|phrase| phrase.trim())
+                    .filter(|phrase| !phrase.is_empty())
+                    .collect::<Vec<&str>>()
+                    .join(" "),
+            ];
+
+            Ok(splitmonic::recover_mnemonic_code(split_phrases)?)
+        }
 
         // any other combinations are impossible
         _ => Err(eyre::eyre!("unreachable")),
@@ -132,4 +229,33 @@ fn setup_split_tui() -> Result<()> {
     split_app.start_event_loop(terminal)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const MNEMONIC_CODE: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
+
+    #[test]
+    fn combines_using_all_phrases_option() {
+        let splitmonic = Splitmonic::from_iter(&["splitmonic", "combine", 
+        "-s=embody fog drop ability sword volume hat detail blue pride yard benefit coach primary now pledge head panel hour congress curtain plug over ordinary debris release tent coin,embody fog drop able network accident hedgehog sibling toilet outdoor quick subway hurdle picture property false quit notable panther crucial already supply mother beef recycle spell rich enhance,embody fog drop about embrace visa adapt winner wine dash fabric snack drip auction deputy visit shift animal various bread country lecture assist marriage merit goat gravity glove"
+        ]);
+
+        let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic).unwrap();
+
+        assert_eq!(&mnemonic_code, MNEMONIC_CODE);
+    }
+
+    #[test]
+    fn combines_using_phrases_passed_in_separately() {
+        let splitmonic = Splitmonic::from_iter(&["splitmonic", "combine", 
+        "--sp1=embody, fog, drop, ability, sword, volume, hat,   detail, blue, pride, yard, benefit, coach, primary, now, pledge, head, panel, hour, congress, curtain, plug, over, ordinary, debris, release, tent, coin", 
+        "--sp2=embody, fog, drop, about, embrace, visa, adapt, winner, wine, dash, fabric, snack, drip, auction, deputy, visit, shift, animal, various, bread, country, lecture, assist, marriage, merit, goat, gravity, glove", 
+        "--sp3=embody, fog, drop, able, network, accident, hedgehog, sibling, toilet, outdoor, quick, subway, hurdle, picture, property, false, quit, notable, panther, crucial, already, supply, mother, beef, recycle, spell, rich, enhance"]);
+
+        let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic).unwrap();
+
+        assert_eq!(&mnemonic_code, MNEMONIC_CODE);
+    }
 }

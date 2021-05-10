@@ -27,8 +27,8 @@ pub enum Error {
     #[error("unable to recover secret")]
     UnableToRecoverSecret,
 
-    #[error("all phrases must be from the same set")]
-    MismatchedSet,
+    #[error("all phrases must be from the same set, expected: {0}\nphrases given:\n {1}")]
+    MismatchedSet(String, String),
 }
 
 /// When given a BIP39 mnemonic code, returns a vec containing 5 split phrases.
@@ -163,7 +163,18 @@ mod recover {
             }
 
             if set_id[0..3] != split_phrase[0..3] {
-                return Err(Error::MismatchedSet);
+                return Err(Error::MismatchedSet(
+                    set_id
+                        .iter()
+                        .map(|str| str.to_string())
+                        .collect::<Vec<String>>()
+                        .join(","),
+                    split_phrase
+                        .iter()
+                        .map(|str| str.to_string())
+                        .collect::<Vec<String>>()
+                        .join(","),
+                ));
             }
 
             without_ids.push(split_phrase[3..].to_vec())
@@ -197,7 +208,13 @@ mod recover {
 fn split_phrases_into_words(split_phrases: &[String]) -> Vec<Vec<&str>> {
     split_phrases
         .iter()
-        .map(|phrase| phrase.split(' ').collect::<Vec<&str>>())
+        .map(|phrase| {
+            phrase
+                .trim()
+                .split(' ')
+                .filter(|phrase| !phrase.is_empty())
+                .collect::<Vec<&str>>()
+        })
         .collect()
 }
 
