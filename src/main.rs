@@ -93,7 +93,7 @@ enum Splitmonic {
             short = "3",
             visible_alias = "sp3",
             long,
-            requires_all = &["split_phrases-1", "split-phrases-2"],
+            requires_all = &["split-phrases-1", "split-phrases-2"],
             help = "third split phrase",
             conflicts_with = "interactive",
             use_delimiter = true,
@@ -123,19 +123,36 @@ fn main() -> Result<()> {
             interactive: true, ..
         } => Ok(()),
 
-        Splitmonic::Combine {
-            all_split_phrases: Some(split_phrases),
-            ..
+        app @ Splitmonic::Combine {
+            interactive: false, ..
         } => {
-            let mnemonic_code = splitmonic::recover_mnemonic_code(split_phrases)?;
+            let mnemonic_code = get_mnemonic_code_from_combine_cli(app)?;
 
             println!("\nSuccessfully recovered your mnemonic code:\n");
-
             for (index, word) in mnemonic_code.split(' ').enumerate() {
                 println!("{}: {}", index + 1, word)
             }
 
             Ok(())
+        }
+
+        // any other combinations are impossible
+        _ => Err(eyre::eyre!("unreachable")),
+    }
+}
+
+fn get_mnemonic_code_from_combine_cli(app: Splitmonic) -> Result<String> {
+    match app {
+        Splitmonic::Combine {
+            all_split_phrases: Some(split_phrases),
+            ..
+        } => {
+            let split_phrases = split_phrases
+                .iter()
+                .map(|phrase| phrase.trim().to_string())
+                .collect();
+
+            Ok(splitmonic::recover_mnemonic_code(split_phrases)?)
         }
 
         Splitmonic::Combine {
@@ -165,12 +182,7 @@ fn main() -> Result<()> {
                     .join(" "),
             ];
 
-            let mnemonic_code = splitmonic::recover_mnemonic_code(split_phrases)?;
-
-            println!("Successfully recovered your mnemonic code");
-            println!("{}", mnemonic_code);
-
-            Ok(())
+            Ok(splitmonic::recover_mnemonic_code(split_phrases)?)
         }
 
         // any other combinations are impossible
@@ -217,4 +229,33 @@ fn setup_split_tui() -> Result<()> {
     split_app.start_event_loop(terminal)?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const MNEMONIC_CODE: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
+
+    #[test]
+    fn combines_using_all_phrases_option() {
+        let splitmonic = Splitmonic::from_iter(&["splitmonic", "combine", 
+        "-s=embody fog drop ability sword volume hat detail blue pride yard benefit coach primary now pledge head panel hour congress curtain plug over ordinary debris release tent coin,embody fog drop able network accident hedgehog sibling toilet outdoor quick subway hurdle picture property false quit notable panther crucial already supply mother beef recycle spell rich enhance,embody fog drop about embrace visa adapt winner wine dash fabric snack drip auction deputy visit shift animal various bread country lecture assist marriage merit goat gravity glove"
+        ]);
+
+        let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic).unwrap();
+
+        assert_eq!(&mnemonic_code, MNEMONIC_CODE);
+    }
+
+    #[test]
+    fn combines_using_phrases_passed_in_separately() {
+        let splitmonic = Splitmonic::from_iter(&["splitmonic", "combine", 
+        "--sp1=embody, fog, drop, ability, sword, volume, hat,   detail, blue, pride, yard, benefit, coach, primary, now, pledge, head, panel, hour, congress, curtain, plug, over, ordinary, debris, release, tent, coin", 
+        "--sp2=embody, fog, drop, about, embrace, visa, adapt, winner, wine, dash, fabric, snack, drip, auction, deputy, visit, shift, animal, various, bread, country, lecture, assist, marriage, merit, goat, gravity, glove", 
+        "--sp3=embody, fog, drop, able, network, accident, hedgehog, sibling, toilet, outdoor, quick, subway, hurdle, picture, property, false, quit, notable, panther, crucial, already, supply, mother, beef, recycle, spell, rich, enhance"]);
+
+        let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic).unwrap();
+
+        assert_eq!(&mnemonic_code, MNEMONIC_CODE);
+    }
 }
