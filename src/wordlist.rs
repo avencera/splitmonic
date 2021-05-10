@@ -26,20 +26,20 @@ pub struct WordlistData {
 
 // The Wordlist trait that every language's wordlist must implement.
 pub trait Wordlist {
-    const WORDLIST: Lazy<WordlistData>;
+    fn wordlist() -> Lazy<WordlistData>;
 
     /// Returns the word of a given index from the word list.
     fn get_word(index: usize) -> Result<&'static str, WordlistError> {
-        Self::WORDLIST
+        Self::wordlist()
             .words
             .get(&index)
             .ok_or(WordlistError::InvalidIndex(index))
-            .map(|word| word.clone())
+            .map(|word| *word)
     }
 
     /// Returns the index of a given word from the word list.
     fn get_index(word: &str) -> Result<usize, WordlistError> {
-        Self::WORDLIST
+        Self::wordlist()
             .indexes
             .get(word)
             .ok_or_else(|| WordlistError::InvalidWord(word.into()))
@@ -52,13 +52,13 @@ pub trait Wordlist {
 
     /// Returns the word list as a string.
     fn get_all() -> Vec<&'static str> {
-        let mut words: Vec<&'static str> = Self::WORDLIST.words.values().cloned().collect();
+        let mut words: Vec<&'static str> = Self::wordlist().words.values().cloned().collect();
         words.sort_unstable();
         words
     }
 
     fn starting_with(start: &str) -> Vec<&'static str> {
-        let mut words = Self::WORDLIST
+        let mut words = Self::wordlist()
             .words
             .values()
             .into_iter()

@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 /// Taken from: https://github.com/Nebulosus/shamir, heavily modified to fit current library needs
 use rand::{thread_rng, RngCore};
 use thiserror::Error;
@@ -278,13 +280,21 @@ impl SecretData {
     fn add_polynomials(a: &[u8], b: &[u8]) -> Vec<u8> {
         let mut a = a.to_owned();
         let mut b = b.to_owned();
-        if a.len() < b.len() {
-            let mut t = vec![0; b.len() - a.len()];
-            a.append(&mut t);
-        } else if a.len() > b.len() {
-            let mut t = vec![0; a.len() - b.len()];
-            b.append(&mut t);
+
+        match a.len().cmp(&b.len()) {
+            Ordering::Greater => {
+                let mut t = vec![0; a.len() - b.len()];
+                b.append(&mut t);
+            }
+
+            Ordering::Less => {
+                let mut t = vec![0; b.len() - a.len()];
+                a.append(&mut t);
+            }
+
+            Ordering::Equal => {}
         }
+
         let mut results: Vec<u8> = vec![];
 
         for i in 0..a.len() {
