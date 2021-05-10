@@ -123,10 +123,10 @@ fn main() -> Result<()> {
             interactive: true, ..
         } => Ok(()),
 
-        app @ Splitmonic::Combine {
+        splitmonic @ Splitmonic::Combine {
             interactive: false, ..
         } => {
-            let mnemonic_code = get_mnemonic_code_from_combine_cli(app)?;
+            let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic)?;
 
             println!("\nSuccessfully recovered your mnemonic code:\n");
             for (index, word) in mnemonic_code.split(' ').enumerate() {
@@ -141,8 +141,8 @@ fn main() -> Result<()> {
     }
 }
 
-fn get_mnemonic_code_from_combine_cli(app: Splitmonic) -> Result<String> {
-    match app {
+fn get_mnemonic_code_from_combine_cli(splitmonic: Splitmonic) -> Result<String> {
+    match splitmonic {
         Splitmonic::Combine {
             all_split_phrases: Some(split_phrases),
             ..
