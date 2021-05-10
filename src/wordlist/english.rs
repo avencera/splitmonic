@@ -11,16 +11,18 @@ pub const ENGLISH: &str = include_str!("./words/english.txt");
 pub struct English;
 
 impl Wordlist for English {
-    const WORDLIST: Lazy<WordlistData> = Lazy::new(|| {
-        let words = ENGLISH.lines().enumerate().collect();
-        let indexes = ENGLISH
-            .lines()
-            .enumerate()
-            .map(|(index, word)| (word, index))
-            .collect();
+    fn wordlist() -> Lazy<WordlistData> {
+        Lazy::new(|| {
+            let words = ENGLISH.lines().enumerate().collect();
+            let indexes = ENGLISH
+                .lines()
+                .enumerate()
+                .map(|(index, word)| (word, index))
+                .collect();
 
-        WordlistData { words, indexes }
-    });
+            WordlistData { words, indexes }
+        })
+    }
 }
 
 #[cfg(test)]
