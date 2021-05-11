@@ -18,7 +18,7 @@ pub enum Error {
         given_phrase: String,
     },
 
-    #[error("invalid number of split phrases, expected: {expected:?}, found: {given:?}, all phrases: {all_phrases:?}")]
+    #[error("invalid number of split phrases, expected: {expected:?}, found: {given:?}")]
     PhrasesLengthThreshold {
         expected: usize,
         given: usize,
@@ -26,8 +26,7 @@ pub enum Error {
     },
 
     #[error("found invalid split phrase lengths, the following phrases weren't long enough: {invalid_phrases:?}\n\
-    they were expected to all be 28 words long. Instead they were of lengths: {invalid_phrase_lengths:?}\n\
-    all phrases: {all_phrases:?}")]
+    they were expected to all be 28 words long. Instead they were of lengths: {invalid_phrase_lengths:?}")]
     PhraseLength {
         invalid_phrase_lengths: Vec<usize>,
         invalid_phrases: Vec<String>,
