@@ -115,9 +115,33 @@ fn main() -> Result<()> {
         } => setup_split_tui(),
 
         Splitmonic::Split {
-            mnemonic: Some(_mnemonic),
+            interactive: false,
+            mnemonic: Some(mnemonic),
             ..
-        } => Ok(()),
+        } => {
+            match get_split_phrases(mnemonic) {
+                Ok(split_phrases) => {
+                    for (index, phrase) in split_phrases.iter().enumerate() {
+                        println!("\n######################################################");
+                        println!(
+                            "############## Split Phrase {} of 5 ###################",
+                            index + 1
+                        );
+                        println!("######################################################");
+
+                        phrase
+                            .split(' ')
+                            .enumerate()
+                            .for_each(|(index, word)| println!("{}: {}", index + 1, word));
+
+                        println!();
+                    }
+                }
+                Err(error) => eprintln!("Error splitting mnemonic into split phrases: {}", error),
+            }
+
+            Ok(())
+        }
 
         Splitmonic::Combine {
             interactive: true, ..
@@ -146,6 +170,11 @@ fn main() -> Result<()> {
         // any other combinations are impossible
         _ => Err(eyre::eyre!("unreachable")),
     }
+}
+
+fn get_split_phrases(mnemonic: String) -> Result<Vec<String>> {
+    splitmonic::validation::validate_mnemonic_code(&mnemonic)?;
+    Ok(splitmonic::get_split_phrases(mnemonic)?)
 }
 
 fn get_mnemonic_code_from_combine_cli(splitmonic: Splitmonic) -> Result<String> {
