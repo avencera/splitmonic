@@ -126,11 +126,18 @@ fn main() -> Result<()> {
         splitmonic @ Splitmonic::Combine {
             interactive: false, ..
         } => {
-            let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic)?;
+            let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic);
 
-            println!("\nSuccessfully recovered your mnemonic code:\n");
-            for (index, word) in mnemonic_code.split(' ').enumerate() {
-                println!("{}: {}", index + 1, word)
+            match mnemonic_code {
+                Ok(mnemonic_code) => {
+                    println!("\nSuccessfully recovered your mnemonic code:\n");
+                    for (index, word) in mnemonic_code.split(' ').enumerate() {
+                        println!("{}: {}", index + 1, word)
+                    }
+                }
+                Err(error) => {
+                    eprintln!("Error combining split phrases: {}", error)
+                }
             }
 
             Ok(())
@@ -147,10 +154,12 @@ fn get_mnemonic_code_from_combine_cli(splitmonic: Splitmonic) -> Result<String> 
             all_split_phrases: Some(split_phrases),
             ..
         } => {
-            let split_phrases = split_phrases
+            let split_phrases: Vec<String> = split_phrases
                 .iter()
                 .map(|phrase| phrase.trim().to_string())
                 .collect();
+
+            splitmonic::validation::validate_split_phrases(split_phrases.clone())?;
 
             Ok(splitmonic::recover_mnemonic_code(split_phrases)?)
         }
@@ -181,6 +190,8 @@ fn get_mnemonic_code_from_combine_cli(splitmonic: Splitmonic) -> Result<String> 
                     .collect::<Vec<&str>>()
                     .join(" "),
             ];
+
+            splitmonic::validation::validate_split_phrases(split_phrases.clone())?;
 
             Ok(splitmonic::recover_mnemonic_code(split_phrases)?)
         }

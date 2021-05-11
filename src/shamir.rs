@@ -29,7 +29,6 @@ mod tests {
         let secret_data = SecretData::with_secret("Hello, world!".as_bytes(), 3);
 
         let s1 = secret_data.get_share(1).unwrap();
-        println!("Share: {:?}", s1);
 
         let s2 = secret_data.get_share(1).unwrap();
         assert_eq!(s1, s2);
