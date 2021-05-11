@@ -1,4 +1,5 @@
 pub mod shamir;
+pub mod validation;
 pub mod wordlist;
 
 use crate::shamir::SecretData;
@@ -168,12 +169,12 @@ mod recover {
                         .iter()
                         .map(|str| str.to_string())
                         .collect::<Vec<String>>()
-                        .join(","),
+                        .join(" "),
                     split_phrase
                         .iter()
                         .map(|str| str.to_string())
                         .collect::<Vec<String>>()
-                        .join(","),
+                        .join(" "),
                 ));
             }
 
