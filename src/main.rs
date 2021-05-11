@@ -115,7 +115,7 @@ fn main() -> Result<()> {
         } => setup_split_tui(),
 
         Splitmonic::Split {
-            mnemonic: Some(mnemonic),
+            mnemonic: Some(_mnemonic),
             ..
         } => Ok(()),
 

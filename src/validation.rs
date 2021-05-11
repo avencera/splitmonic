@@ -47,11 +47,11 @@ pub fn validate_mnemonic_code(mnemonic: String) -> Result<(), Error> {
     let mnemonic_vec: Vec<&str> = mnemonic.split(' ').collect();
 
     if mnemonic_vec.len() != 24 {
-        Err(Error::MnemonicLength {
+        return Err(Error::MnemonicLength {
             expected: 24,
             given: mnemonic_vec.len(),
             mnemonic: mnemonic.clone(),
-        })?
+        });
     }
 
     validate_all_correct_words(&mnemonic_vec)?;
@@ -61,11 +61,11 @@ pub fn validate_mnemonic_code(mnemonic: String) -> Result<(), Error> {
 
 pub fn validate_split_phrases(split_phrases: Vec<String>) -> Result<(), Error> {
     if split_phrases.len() != 3 {
-        Err(Error::PhrasesLengthThreshold {
+        return Err(Error::PhrasesLengthThreshold {
             expected: 3,
             given: split_phrases.len(),
             all_phrases: split_phrases.join("\n"),
-        })?
+        });
     }
 
     let split_phrases_vec: Vec<Vec<&str>> = split_phrases
@@ -85,24 +85,24 @@ fn validate_all_correct_words(mnemonic_vec: &[&str]) -> Result<(), Error> {
     let mut invalid_words = vec![];
 
     for (index, word) in mnemonic_vec.iter().enumerate() {
-        if let Err(_) = English::get_index(word) {
+        if English::get_index(word).is_err() {
             indexes.push(index);
             invalid_words.push(word.to_string());
         }
     }
 
     if !indexes.is_empty() {
-        Err(Error::Words {
+        return Err(Error::Words {
             indexes,
             invalid_words,
             given_phrase: mnemonic_vec.join(" "),
-        })?
+        });
     }
 
     Ok(())
 }
 
-fn validate_lengths_of_phrases(split_phrases: &Vec<Vec<&str>>) -> Result<(), Error> {
+fn validate_lengths_of_phrases(split_phrases: &[Vec<&str>]) -> Result<(), Error> {
     let mut invalid_phrase_lengths = vec![];
     let mut invalid_phrases = vec![];
 
@@ -114,7 +114,7 @@ fn validate_lengths_of_phrases(split_phrases: &Vec<Vec<&str>>) -> Result<(), Err
     }
 
     if !invalid_phrases.is_empty() {
-        Err(Error::PhraseLength {
+        return Err(Error::PhraseLength {
             invalid_phrase_lengths,
             invalid_phrases,
             all_phrases: split_phrases
@@ -123,13 +123,13 @@ fn validate_lengths_of_phrases(split_phrases: &Vec<Vec<&str>>) -> Result<(), Err
                 .map(|phrases| phrases.join(" "))
                 .collect::<Vec<String>>()
                 .join("\n"),
-        })?
+        });
     }
 
     Ok(())
 }
 
-fn validate_words_in_phrases(split_phrases: &Vec<Vec<&str>>) -> Result<(), Error> {
+fn validate_words_in_phrases(split_phrases: &[Vec<&str>]) -> Result<(), Error> {
     let mut invalid_words: Vec<(usize, Error)> = vec![];
 
     for (index, phrases) in split_phrases.iter().enumerate() {
@@ -139,13 +139,13 @@ fn validate_words_in_phrases(split_phrases: &Vec<Vec<&str>>) -> Result<(), Error
     }
 
     if !invalid_words.is_empty() {
-        Err(Error::InvalidSplitPhraseWords(invalid_words))?
+        return Err(Error::InvalidSplitPhraseWords(invalid_words));
     }
 
     Ok(())
 }
 
-fn validate_part_of_same_set(split_phrases: &Vec<Vec<&str>>) -> Result<(), Error> {
+fn validate_part_of_same_set(split_phrases: &[Vec<&str>]) -> Result<(), Error> {
     let mut set_id = Vec::with_capacity(3);
     let mut mismatched_sets = vec![];
 
@@ -160,10 +160,10 @@ fn validate_part_of_same_set(split_phrases: &Vec<Vec<&str>>) -> Result<(), Error
     }
 
     if !mismatched_sets.is_empty() {
-        Err(Error::MismatchedSet {
+        return Err(Error::MismatchedSet {
             given: mismatched_sets,
             expected: set_id.join(" "),
-        })?
+        });
     }
 
     Ok(())
@@ -178,7 +178,7 @@ mod tests {
         let error = validate_mnemonic_code("this is a fail".to_string()).unwrap_err();
 
         assert_eq!(
-            error.clone(),
+            error,
             Error::MnemonicLength {
                 expected: 24,
                 given: 4,
@@ -206,7 +206,7 @@ mod tests {
                     "abandan".to_string(),
                     "f150".to_string()
                 ],
-                given_phrase: mnemonic.clone()
+                given_phrase: mnemonic
             }
         );
     }
@@ -243,7 +243,7 @@ mod tests {
             error,
             Error::PhraseLength {
                 invalid_phrase_lengths: vec![6, 5, 2],
-                invalid_phrases: phrases.clone(),
+                invalid_phrases: phrases,
                 all_phrases:
                     "hello this is my first phrase\nthis is my second phrase\nthird phrase"
                         .to_string(),
@@ -253,13 +253,13 @@ mod tests {
 
     #[test]
     fn test_validate_part_of_same_set() {
-        let phrases = vec![
+        let phrases: Vec<Vec<&str>> = vec![
             "hello hello hello some other random stuff",
             "hello hello hello more random stuff",
             "hello bad hello even more random stuff",
         ]
         .iter()
-        .map(|phrase| phrase.split(" ").collect())
+        .map(|phrase| phrase.split(' ').collect())
         .collect();
 
         let error = validate_part_of_same_set(&phrases).unwrap_err();

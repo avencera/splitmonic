@@ -230,7 +230,7 @@ mod tests {
         let split_phrases = get_split_phrases(mnemonic_code.to_string()).unwrap();
 
         for split_phrase in split_phrases {
-            assert_eq!(split_phrase.split(' ').collect::<Vec<&str>>().len(), 28)
+            assert_eq!(split_phrase.split(' ').count(), 28)
         }
     }
 

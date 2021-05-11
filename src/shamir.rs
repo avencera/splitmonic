@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn it_requires_enough_shares() {
-        fn try_recover(n: u8, shares: &Vec<Vec<u8>>) -> Option<String> {
+        fn try_recover(n: u8, shares: &[Vec<u8>]) -> Option<String> {
             let shares = shares.iter().take(n as usize).cloned().collect::<Vec<_>>();
 
             SecretData::recover_secret(n, shares).and_then(|bytes| String::from_utf8(bytes).ok())
