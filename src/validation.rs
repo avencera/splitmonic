@@ -43,14 +43,14 @@ pub enum Error {
     },
 }
 
-pub fn validate_mnemonic_code(mnemonic: String) -> Result<(), Error> {
+pub fn validate_mnemonic_code(mnemonic: &str) -> Result<(), Error> {
     let mnemonic_vec: Vec<&str> = mnemonic.split(' ').collect();
 
     if mnemonic_vec.len() != 24 {
         return Err(Error::MnemonicLength {
             expected: 24,
             given: mnemonic_vec.len(),
-            mnemonic: mnemonic.clone(),
+            mnemonic: mnemonic.to_string(),
         });
     }
 
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn produces_error_on_wrong_length() {
-        let error = validate_mnemonic_code("this is a fail".to_string()).unwrap_err();
+        let error = validate_mnemonic_code("this is a fail").unwrap_err();
 
         assert_eq!(
             error,
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn produces_error_on_wrong_words() {
         let mnemonic = "abandon abandon abandon abandon ford abandon abandon abandon abandon abandan abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon f150 art".to_string();
-        let error = validate_mnemonic_code(mnemonic.clone()).unwrap_err();
+        let error = validate_mnemonic_code(&mnemonic).unwrap_err();
 
         assert_eq!(
             error,
