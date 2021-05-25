@@ -16,6 +16,9 @@ Download a release directly from github: [github.com/avencera/splitmonic/release
 
 ## Usage
 
+**_Warning: For security reasons, I do not recommend using this on your daily use computer. I personally run this on a Raspberry PI Zero which is never connected to the
+internet._**
+
 ### Split using TUI
 
 To split your phrase I recommend you use the terminal user interface (TUI). The TUI helps you correctly
@@ -93,7 +96,7 @@ splitmonic combine -f phrases_2_of_5.txt phrases_3_of_5.txt --sp1="gun, dismiss,
 ## What?
 
 A small program that takes you're 24 word BIP39 mnemonic code and generates 5 more phrases, each
-25 words long.
+28 words long.
 
 Using any **3 of these 5 phrases** you can recreate your original 24 word mnemonic code
 
@@ -112,11 +115,21 @@ still recover your original code using the remaining 3.
 
 ## FAQ
 
+**Q. Aren't I not supposed to EVER type my secret mnemonic into the computer?**
+
+**A.** Yes, that is a bad idea. You're computer could be compromised and someone could steal all your bitcoin. And if you use the CLI your phrase will stick around in your zsh/bash history file. So at least delete that. Personally I use splitmonic on a raspberry pi zero that's never connected to the internet (picture below).
+
+![](assets/rpi_zero.jpg)
+
 **Q. Why wouldn't I just use multi-signature?**
 
 **A.** You definitely could, but using multi-signature can be a hassle. With splitmonic you can use
 you current single signature hardware wallet as you normally do, while making your backups more
 secure.
+
+**Q. Why wouldn't I just use SLIP39?**
+
+**A.** If you have hardware wallet that is compatible with SLIP39, then ya you should probably use that instead
 
 **Q. If someone finds 1 or 2 of my splitmonic phrases can they guess my original phrase?**
 

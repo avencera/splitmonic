@@ -21,7 +21,7 @@ pub type Term = Terminal<Backend>;
 
 use structopt::StructOpt;
 
-/// Simplicity of paper backup with security of a multi-signature
+/// Split your BIP39 mnemonic phrase using shamir secret sharing
 #[derive(StructOpt, Debug)]
 #[structopt(name = "splitmonic", global_settings = &[AppSettings::ColoredHelp, AppSettings::ArgRequiredElseHelp])]
 enum Splitmonic {
