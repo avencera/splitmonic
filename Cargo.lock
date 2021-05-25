@@ -546,7 +546,7 @@ version = "0.1.0"
 dependencies = [
  "once_cell",
  "rand",
- "splitmonic_bip39",
+ "splitmonic_bip39 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "zeroize",
 ]
@@ -557,6 +557,19 @@ version = "1.0.0"
 dependencies = [
  "bitcoin_hashes",
  "rand",
+ "rand_core",
+ "serde",
+ "unicode-normalization",
+ "zeroize",
+]
+
+[[package]]
+name = "splitmonic_bip39"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "699ff58301240195bdde4e068d54f05770f74ed214c76841f5d79b936ba2b75e"
+dependencies = [
+ "bitcoin_hashes",
  "rand_core",
  "serde",
  "unicode-normalization",
