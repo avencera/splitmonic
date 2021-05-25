@@ -11,7 +11,9 @@ pub enum Error {
         mnemonic: String,
     },
 
-    #[error("invalid words found, invalid word indexes: {indexes:?},\ninvalid words: {invalid_words:?}\n given_phrase: {given_phrase:?}")]
+    #[error(
+        "invalid words found, invalid word indexes: {indexes:?},\ninvalid words: {invalid_words:?}"
+    )]
     Words {
         indexes: Vec<usize>,
         invalid_words: Vec<String>,

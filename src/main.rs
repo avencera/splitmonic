@@ -7,7 +7,7 @@ use crossterm::{
     event::{self, Event as CEvent},
     execute, terminal,
 };
-use eyre::Result;
+use eyre::{Context, Result};
 use std::{
     io::{self, Stdout},
     thread,
@@ -47,15 +47,14 @@ enum Splitmonic {
         about = "Combine you're split phrases into your original mnemonic"
     )]
     Combine {
-        #[structopt(short, long, help = "use the interactive TUI", 
-        required_unless_one = &["all-split-phrases", "split-phrases-1"])]
+        #[structopt(short, long, help = "use the interactive TUI")]
         interactive: bool,
 
         #[structopt(
             short="s",
             long,
             help = "3 of 5 split phrases",
-            required_unless_one = &["split-phrases-1", "split-phrases-2", "split-phrases-3", "interactive"],
+            required_unless_one = &["split-phrases-1", "split-phrases-2", "split-phrases-3", "interactive", "split-phrase-files"],
             conflicts_with = "interactive",
             use_delimiter = true,
             min_values = 3,
@@ -63,12 +62,21 @@ enum Splitmonic {
         )]
         all_split_phrases: Option<Vec<String>>,
 
+        #[structopt(short="f", long, 
+        help = "list of files containing your split phrases",             
+        required_unless_one = &["split-phrases-1", "split-phrases-2", "split-phrases-3", "interactive", "all-split-phrases"],
+        conflicts_with = "interactive",
+        use_delimiter = true,
+        min_values = 1,
+        max_values = 3
+        )]
+        split_phrase_files: Option<Vec<String>>,
+
         #[structopt(
             short = "1",
             visible_alias = "sp1",
             long,
             help = "first split phrase",
-            requires_all = &["split-phrases-2", "split-phrases-3"],
             conflicts_with = "interactive",
             use_delimiter = true,
             min_values = 28,
@@ -81,7 +89,6 @@ enum Splitmonic {
             visible_alias = "sp2",
             long,
             help = "second split phrase",
-            requires_all = &["split-phrases-1", "split-phrases-3"],
             conflicts_with = "interactive",
             use_delimiter = true,
             min_values = 28,
@@ -93,7 +100,6 @@ enum Splitmonic {
             short = "3",
             visible_alias = "sp3",
             long,
-            requires_all = &["split-phrases-1", "split-phrases-2"],
             help = "third split phrase",
             conflicts_with = "interactive",
             use_delimiter = true,
@@ -194,31 +200,32 @@ fn get_mnemonic_code_from_combine_cli(splitmonic: Splitmonic) -> Result<String> 
         }
 
         Splitmonic::Combine {
-            split_phrases_1: Some(split_phrases_1),
-            split_phrases_2: Some(split_phrases_2),
-            split_phrases_3: Some(split_phrases_3),
+            split_phrase_files: Some(ref file_paths),
+            split_phrases_1,
+            split_phrases_2,
+            split_phrases_3,
             ..
         } => {
-            let split_phrases = vec![
-                split_phrases_1
-                    .iter()
-                    .map(|phrase| phrase.trim())
-                    .filter(|phrase| !phrase.is_empty())
-                    .collect::<Vec<&str>>()
-                    .join(" "),
-                split_phrases_2
-                    .iter()
-                    .map(|phrase| phrase.trim())
-                    .filter(|phrase| !phrase.is_empty())
-                    .collect::<Vec<&str>>()
-                    .join(" "),
-                split_phrases_3
-                    .iter()
-                    .map(|phrase| phrase.trim())
-                    .filter(|phrase| !phrase.is_empty())
-                    .collect::<Vec<&str>>()
-                    .join(" "),
-            ];
+            let split_phrases = get_split_phrases_from_files(
+                &file_paths,
+                vec![split_phrases_1, split_phrases_2, split_phrases_3],
+            );
+            splitmonic::validation::validate_split_phrases(split_phrases.clone())?;
+
+            Ok(splitmonic::recover_mnemonic_code(split_phrases)?)
+        }
+
+        Splitmonic::Combine {
+            split_phrases_1,
+            split_phrases_2,
+            split_phrases_3,
+            ..
+        } => {
+            let split_phrases = vec![split_phrases_1, split_phrases_2, split_phrases_3]
+                .iter()
+                .filter_map(|phrase| phrase.as_ref())
+                .map(|phrase| clean_and_combine_phrase(phrase))
+                .collect::<Vec<String>>();
 
             splitmonic::validation::validate_split_phrases(split_phrases.clone())?;
 
@@ -228,6 +235,56 @@ fn get_mnemonic_code_from_combine_cli(splitmonic: Splitmonic) -> Result<String> 
         // any other combinations are impossible
         _ => Err(eyre::eyre!("unreachable")),
     }
+}
+
+fn clean_and_combine_phrase(phrase: &[String]) -> String {
+    phrase
+        .iter()
+        .map(|phrase| phrase.trim())
+        .filter(|phrase| !phrase.is_empty())
+        .collect::<Vec<&str>>()
+        .join(" ")
+}
+
+fn get_split_phrases_from_files(
+    file_paths: &[String],
+    phrases_direct: Vec<Option<Vec<String>>>,
+) -> Vec<String> {
+    let phrases_from_files = file_paths
+        .iter()
+        .map(|file| read_and_get_phrases_from_file(file))
+        .filter_map(Result::ok)
+        .map(|phrase| clean_and_combine_phrase(&phrase));
+
+    let phrases_direct = phrases_direct
+        .iter()
+        .filter_map(|phrase| phrase.as_ref())
+        .map(|phrase| clean_and_combine_phrase(phrase));
+
+    phrases_from_files.chain(phrases_direct).collect()
+}
+
+fn read_and_get_phrases_from_file(path: &str) -> Result<Vec<String>> {
+    let file_contents =
+        std::fs::read_to_string(path).wrap_err_with(|| format!("Unable to read file: {}", path))?;
+
+    let words = extracts_words_from_file_contents(file_contents);
+
+    Ok(words)
+}
+
+fn extracts_words_from_file_contents(file_contents: String) -> Vec<String> {
+    let mut words = Vec::with_capacity(28);
+
+    for line in file_contents.lines() {
+        let word: String = line.chars().filter(|char| char.is_alphabetic()).collect();
+
+        if !word.is_empty() {
+            words.push(word)
+        }
+    }
+
+    words
 }
 
 fn setup_split_tui() -> Result<()> {
@@ -297,5 +354,51 @@ mod tests {
         let mnemonic_code = get_mnemonic_code_from_combine_cli(splitmonic).unwrap();
 
         assert_eq!(&mnemonic_code, MNEMONIC_CODE);
+    }
+
+    #[test]
+    fn extracts_words_from_output_file_format() {
+        let file_contents = "
+        1: gun
+        2: dismiss
+        3: area
+        4: ability
+        5: laptop
+        6: live
+        7: ignore
+        8: love
+        9: ride
+        10: deposit
+        11: upset
+        12: enemy
+        13: start
+        14: leopard
+        15: domain
+        16: exile
+        17: talent
+        18: enroll
+        19: north
+        20: position
+        21: talk
+        22: hope
+        23: script
+        24: parent
+        25: tongue
+        26: ride
+        27: pepper
+        28: brisk"
+            .to_string();
+
+        let words_list: Vec<String> = vec![
+            "gun", "dismiss", "area", "ability", "laptop", "live", "ignore", "love", "ride",
+            "deposit", "upset", "enemy", "start", "leopard", "domain", "exile", "talent", "enroll",
+            "north", "position", "talk", "hope", "script", "parent", "tongue", "ride", "pepper",
+            "brisk",
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+
+        assert_eq!(extracts_words_from_file_contents(file_contents), words_list)
     }
 }
