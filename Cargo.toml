@@ -1,6 +1,6 @@
 [package]
 authors = ["Praveen Perera <praveen@avencera.com>"]
-description = "Simplicity of paper backup with security of a multi-signature"
+description = "Split your BIP39 mnemonic phrase using shamir secret sharing"
 documentation = "https://docs.rs/splitmonic"
 edition = "2018"
 homepage = "https://github.com/avencera/splitmonic"

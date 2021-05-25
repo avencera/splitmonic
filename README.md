@@ -1,6 +1,6 @@
 # splitmonic - work in progress
 
-Simplicity of paper backup with security of a multi-signature
+Split your BIP39 mnemonic phrase using shamir secret sharing
 
 ![](splitmonic_explain.jpg)
 
