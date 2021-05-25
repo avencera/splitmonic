@@ -1,16 +1,94 @@
-# splitmonic - work in progress
+# splitmonic - [![Mean Bean CI](https://github.com/avencera/splitmonic/workflows/Mean%20Bean%20CI/badge.svg)](https://github.com/avencera/splitmonic/actions?query=workflow%3A%22Mean+Bean+CI%22)
 
 Split your BIP39 mnemonic phrase using shamir secret sharing
 
-![](splitmonic_explain.jpg)
+![](assets/splitmonic_explain.jpg)
 
 ## Install
 
-... coming soon ...
+Install from a github release:
+
+`curl -LSfs https://avencera.github.io/splitmonic/install.sh | sh -s -- --git avencera/splitmonic`
+
+or
+
+Download a release directly from github: [github.com/avencera/splitmonic/releases](https://github.com/avencera/splitmonic/releases)
 
 ## Usage
 
-...coming soon...
+### Split using TUI
+
+To split your phrase I recommend you use the terminal user interface (TUI). The TUI helps you correctly
+type your phrase with autocomplete and error checking.
+
+`splitmonic split --interactive`
+
+![](assets/split_interactive.gif)
+
+### Split using CLI
+
+```
+splitmonic-split 0.1.0
+Split you're mnemonic into multiple split phrases
+
+USAGE:
+    splitmonic split [FLAGS] --mnemonic <mnemonic>
+
+FLAGS:
+    -h, --help           Prints help information
+    -i, --interactive    use the interactive TUI
+    -V, --version        Prints version information
+```
+
+You can also use the CLI directly, ex:
+
+```shell
+splitmonic split --mnemonic "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art"
+```
+
+### Combine using TUI
+
+... coming soon ... if you're interested let me know: https://github.com/avencera/splitmonic/issues/3,
+
+### Combine using CLI
+
+```
+splitmonic-combine 0.1.0
+Combine you're split phrases into your original mnemonic
+
+USAGE:
+    splitmonic combine [FLAGS] [OPTIONS] --all-split-phrases <all-split-phrases>... --split-phrase-files <split-phrase-files>...
+
+FLAGS:
+    -h, --help           Prints help information
+    -i, --interactive    use the interactive TUI
+    -V, --version        Prints version information
+
+OPTIONS:
+    -s, --all-split-phrases <all-split-phrases>...      3 of 5 split phrases
+    -f, --split-phrase-files <split-phrase-files>...    list of files containing your split phrases
+    -1, --split-phrases-1 <split-phrases-1>...          first split phrase [aliases: sp1]
+    -2, --split-phrases-2 <split-phrases-2>...          second split phrase [aliases: sp2]
+    -3, --split-phrases-3 <split-phrases-3>...          third split phrase [aliases: sp3]
+```
+
+You can combine using the files that the TUI spit out
+
+```shell
+splitmonic combine -f phrases_1_of_5.txt phrases_5_of_5.txt phrases_2_of_5.txt
+```
+
+Or buy passing them in directly
+
+```shell
+splitmonic combine --sp1="gun, dismiss, area, ability, laptop, live, ignore, love, ride, deposit, upset, enemy, start, leopard, domain, exile, talent, enroll, north, position, talk, hope, script, parent, tongue, ride, pepper, brisk" , --sp2="..." --sp3="..."
+```
+
+Or a combination
+
+```shell
+splitmonic combine -f phrases_2_of_5.txt phrases_3_of_5.txt --sp1="gun, dismiss, area, ability, laptop, live, ignore, love, ride, deposit, upset, enemy, start, leopard, domain, exile, talent, enroll, north, position, talk, hope, script, parent, tongue, ride, pepper, brisk"
+```
 
 ## What?
 
