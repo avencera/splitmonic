@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
-  "bip39",
-  "splitmonic",
+  "crates/bip39",
+  "crates/splitmonic",
+  "splitmonic_cli",
 ]

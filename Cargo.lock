@@ -57,18 +57,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bip39"
-version = "1.0.0"
-dependencies = [
- "bitcoin_hashes",
- "rand",
- "rand_core",
- "serde",
- "unicode-normalization",
- "zeroize",
-]
-
-[[package]]
 name = "bitcoin_hashes"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -556,20 +544,40 @@ checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 name = "splitmonic"
 version = "0.1.0"
 dependencies = [
- "bip39",
+ "once_cell",
+ "rand",
+ "splitmonic_bip39",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
+name = "splitmonic_bip39"
+version = "1.0.0"
+dependencies = [
+ "bitcoin_hashes",
+ "rand",
+ "rand_core",
+ "serde",
+ "unicode-normalization",
+ "zeroize",
+]
+
+[[package]]
+name = "splitmonic_cli"
+version = "0.1.0"
+dependencies = [
  "color-eyre",
  "crossbeam-channel",
  "crossterm",
  "dirs",
  "eyre",
  "maplit",
- "once_cell",
- "rand",
+ "splitmonic",
  "structopt",
  "thiserror",
  "tui",
  "unicode-width",
- "zeroize",
 ]
 
 [[package]]
