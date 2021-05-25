@@ -1,0 +1,52 @@
+[package]
+authors = ["Steven Roose <steven@stevenroose.org>"]
+description = "Library for BIP-39 Bitcoin mnemonic codes"
+documentation = "https://docs.rs/bip39_zeroize/"
+homepage = "https://github.com/praveenperera/rust-bip39"
+keywords = ["crypto", "bitcoin", "bip39", "mnemonic"]
+license = "CC0-1.0"
+name = "bip39"
+readme = "README.md"
+repository = "https://github.com/rust-bitcoin/rust-bip39/"
+version = "1.0.0"
+
+[lib]
+name = "bip39"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+std = ["unicode-normalization", "serde/std"]
+
+# Note: English is the standard for bip39 so always included
+chinese-simplified = []
+chinese-traditional = []
+czech = []
+french = []
+italian = []
+japanese = []
+korean = []
+spanish = []
+
+all-languages = [
+  "chinese-simplified",
+  "chinese-traditional",
+  "czech",
+  "french",
+  "italian",
+  "japanese",
+  "korean",
+  "spanish",
+]
+
+[dependencies]
+bitcoin_hashes = "0.9.4"
+rand_core = "0.6.2"
+
+rand = {version = "0.8.3", optional = true}
+serde = {version = "1.0", default-features = false, optional = true}
+unicode-normalization = {version = "=0.1.17", optional = true}
+zeroize = {version = "1.2", features = ["zeroize_derive"], optional = true}
+
+[dev-dependencies]
+rand = {version = "0.8.3", optional = false}
