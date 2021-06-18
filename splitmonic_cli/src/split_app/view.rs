@@ -52,7 +52,7 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
         Screen::List => {}
         Screen::PhraseList(_) => {}
         Screen::WordInput(InputMode::Normal) => {}
-        Screen::WordInput(InputMode::Inserting) | Screen::WordInput(InputMode::Editing(_)) => {
+        Screen::WordInput(InputMode::Inserting | InputMode::Editing(_)) => {
             // Make the cursor visible and ask tui-rs to put it at the specified coordinates after rendering
             frame.set_cursor(
                 // Put cursor past the end of the input text
@@ -100,7 +100,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
             Style::default().add_modifier(Modifier::RAPID_BLINK),
         ),
 
-        Screen::WordInput(InputMode::Inserting) | Screen::WordInput(InputMode::Editing(_)) => (
+        Screen::WordInput(InputMode::Inserting | InputMode::Editing(_)) => (
             Text::from(Spans::from(vec![
                 Span::raw("Press "),
                 Span::styled("Esc ", Style::default().add_modifier(Modifier::BOLD)),
@@ -211,7 +211,7 @@ fn help_message_block(app: &SplitApp) -> Paragraph {
 
 fn input_block(app: &SplitApp) -> Paragraph {
     let input_text = match app.screen {
-        Screen::WordInput(InputMode::Inserting) | Screen::WordInput(InputMode::Editing(_)) => {
+        Screen::WordInput(InputMode::Inserting | InputMode::Editing(_)) => {
             let autocomplete = if app.autocomplete.len() >= app.input.len() {
                 &app.autocomplete[app.input.len()..]
             } else {
