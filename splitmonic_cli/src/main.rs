@@ -207,7 +207,7 @@ fn get_mnemonic_code_from_combine_cli(splitmonic: Splitmonic) -> Result<String> 
             ..
         } => {
             let split_phrases = get_split_phrases_from_files(
-                &file_paths,
+                file_paths,
                 vec![split_phrases_1, split_phrases_2, split_phrases_3],
             );
             splitmonic::validation::validate_split_phrases(split_phrases.clone())?;

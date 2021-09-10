@@ -134,7 +134,7 @@ mod split {
         let id = share.remove(0);
         let id_word = English::get_word(id as usize)?;
 
-        let words = Mnemonic::from_entropy(&share).unwrap().to_string();
+        let words = Mnemonic::from_entropy(share).unwrap().to_string();
         share.zeroize();
 
         Ok(format!("{} {}", id_word, words))
@@ -186,7 +186,7 @@ mod recover {
 
     pub(crate) fn words_to_share(mut words: Vec<&str>) -> Result<Vec<u8>, Error> {
         let id_word = words.remove(0);
-        let id = English::get_index(&id_word)?;
+        let id = English::get_index(id_word)?;
 
         let mut share = Mnemonic::parse_in(Language::English, &words.join(" "))?.to_entropy();
 

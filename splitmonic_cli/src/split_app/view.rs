@@ -39,12 +39,12 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
         .split(frame.size());
 
     // render blocks
-    frame.render_widget(help_message_block(&app), chunks[0]);
+    frame.render_widget(help_message_block(app), chunks[0]);
 
     // conditionally render input_block
     match app.screen {
         Screen::SaveLocationInput => {}
-        _ => frame.render_widget(input_block(&app), chunks[1]),
+        _ => frame.render_widget(input_block(app), chunks[1]),
     };
 
     // cursor handling
@@ -73,14 +73,14 @@ pub fn draw(app: &mut SplitApp, frame: &mut Frame<Backend>) {
         .split(chunks[2]);
 
     // We can now render the item list
-    let mnemonic_block = mnemonic_block(&app);
+    let mnemonic_block = mnemonic_block(app);
     frame.render_stateful_widget(mnemonic_block, main_sections[0], &mut app.mnemonic.state);
 
     render_phrases_blocks(app, frame, &main_sections);
 
-    frame.render_widget(save_area(&app), chunks[3]);
+    frame.render_widget(save_area(app), chunks[3]);
 
-    frame.render_widget(messages_area(&app), chunks[4])
+    frame.render_widget(messages_area(app), chunks[4])
 }
 
 fn help_message_block(app: &SplitApp) -> Paragraph {
@@ -344,7 +344,7 @@ fn render_phrases_blocks(app: &mut SplitApp, frame: &mut Frame<Backend>, chunks:
         let mblock = phrase_block(
             *app.selected_phrases.get(&index).unwrap_or(&false),
             &app.screen,
-            &phrases,
+            phrases,
             index,
         );
         frame.render_stateful_widget(mblock, phrases_sections[index], &mut phrases.state)

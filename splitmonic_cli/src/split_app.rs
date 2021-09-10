@@ -201,7 +201,7 @@ impl SplitApp {
                 self.screen = Screen::List;
             }
             KeyCode::Tab => {
-                if let Some(word) = English::next_starting_with(&self.input, &self.autocomplete) {
+                if let Some(word) = English::next_starting_with(&self.input, self.autocomplete) {
                     self.autocomplete = word;
                 }
             }
