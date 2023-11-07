@@ -8,7 +8,7 @@ Split your BIP39 mnemonic phrase using shamir secret sharing
 
 Install using homebrew (mac and linux):
 
-`brew install avencera/taps/splitmonic`
+`brew install avencera/tap/splitmonic`
 
 or
 
