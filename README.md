@@ -121,10 +121,9 @@ still recover your original code using the remaining 3.
 
 ## FAQ
 
-**Q. Aren't I not supposed to EVER type my secret mnemonic into the computer?**
+**Q. Aren't I not supposed to NEVER type my secret mnemonic into the computer?**
 
-**A.** Yes, that is a bad idea. You're computer could be compromised and someone could steal all your bitcoin. And if you use the CLI your phrase will stick around in your zsh/bash history file. So at least delete that. Personally I use splitmonic on a raspberry pi zero that's never connected to the internet (picture below).
-
+**A.** Yes, that is a bad idea. You're computer could be compromised and someone could steal all your bitcoin. And if you use the CLI your phrase will stick around in your zsh/bash history file. So at least delete that. You could use something like the RPI zero and then destroy it afterwards.
 ![](assets/rpi_zero.jpg)
 
 **Q. Why wouldn't I just use multi-signature?**
